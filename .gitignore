@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment files and secrets (NEVER commit real keys)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Testing and coverage
+coverage/
+playwright-report/
+test-results/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Supabase local temp
+supabase/.temp/
+
+# OS files
+.DS_Store
+Thumbs.db

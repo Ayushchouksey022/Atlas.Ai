@@ -1,0 +1,29 @@
+{
+  "name": "ai-upskilling-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter mobile-web web",
+    "web": "pnpm --filter mobile-web web",
+    "ios": "pnpm --filter mobile-web ios",
+    "android": "pnpm --filter mobile-web android",
+    "lint": "eslint .",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:migrate": "supabase migration up"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@testing-library/react-native": "^14.1.0",
+    "eslint": "^10.15.0",
+    "jest-expo": "^58.0.15",
+    "prettier": "^3.10.1",
+    "supabase": "^3.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

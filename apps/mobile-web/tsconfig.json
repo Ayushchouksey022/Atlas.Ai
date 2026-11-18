@@ -1,0 +1,23 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@repo/graph": ["../../packages/graph/src"],
+      "@repo/schemas": ["../../packages/schemas/src"],
+      "@repo/llm": ["../../packages/llm/src"]
+    }
+  },
+  "references": [
+    {
+      "path": "../../packages/graph"
+    },
+    {
+      "path": "../../packages/schemas"
+    },
+    {
+      "path": "../../packages/llm"
+    }
+  ],
+  "include": ["**/*.ts", "**/*.tsx"]
+}
