@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export * from './database.types';
+
 export const DummySchema = z.object({
   id: z.string(),
   name: z.string(),
