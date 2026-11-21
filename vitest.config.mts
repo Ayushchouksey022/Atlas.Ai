@@ -11,5 +11,11 @@ export default defineConfig({
       '@repo/schemas': path.resolve(import.meta.dirname, './packages/schemas/src'),
       '@repo/llm': path.resolve(import.meta.dirname, './packages/llm/src'),
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['packages/graph/src/index.ts', 'packages/schemas/src/**/*.ts'],
+      exclude: ['**/*.test.ts'],
+    },
   },
 });

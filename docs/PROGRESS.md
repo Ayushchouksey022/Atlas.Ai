@@ -136,20 +136,115 @@ pnpm lint       → ✅  no warnings
 
 ---
 
-## Next
+## Completed
 
 ### Prompt 2: Shared schemas and graph core logic
 
-- Implement `/packages/graph` core functions:
-  - `wouldCreateCycle(edges, from, to)` — cycle detection
-  - `validateAcyclic(edges)` — full DAG validation
-  - `topoLayers(nodes, edges)` — topological layer assignment
-  - `availableNodes(userNodes, edges)` — unlocked node computation
-  - `generateBaselineRoadmap(domain, nodes, edges)` — baseline roadmap builder
-  - `applyInjection(roadmap, injection)` — merge sponsored/injected nodes
-  - `applyOverride(roadmap, overrides)` — apply user overrides
-- Implement `/packages/schemas` Zod schemas for:
-  - `CanonicalNode`, `CanonicalEdge`, `UserNode`, `Roadmap`
-  - `NewsItemProcessingOutput`, `VerdictOutput`
-  - Shared status enums matching the DB constraints
-- Write thorough Vitest tests including adversarial cases (self-loops, disconnected graphs, large inputs) and a 200-node performance test.
+#### New files
+
+| File | Contents |
+|---|---|
+| `packages/schemas/src/enums.ts` | Shared Zod enums: `NodeType`, `NodeStatus`, `CanonicalStatus`, `Origin`, `VerdictType`, `UserVerdictState`, `ExperienceLevel` |
+| `packages/schemas/src/domain.ts` | Zod schemas: `CanonicalNodeSchema`, `CanonicalEdgeSchema`, `CanonicalGraphSchema`, `UserNodeSchema`, `RoadmapSchema`, `NewsItemProcessingOutputSchema`, `VerdictOutputSchema`, `LevelsByAreaSchema` |
+| `packages/graph/src/index.ts` | Full graph library implementation (see API below) |
+| `packages/graph/src/index.test.ts` | 72 tests covering all functions, adversarial cases, immutability, sponsor integrity, 200-node perf |
+
+#### Exported API — `@repo/graph`
+
+```ts
+// Result types
+type Ok<T>  = { ok: true; value: T }
+type Err<E> = { ok: false; error: E; detail?: string }
+type Result<T, E extends string> = Ok<T> | Err<E>
+
+// Cycle detection (pure boolean)
+function wouldCreateCycle(
+  edges: readonly CanonicalEdge[],
+  from: string,
+  to: string
+): boolean
+
+// DAG validation — returns layer map on success
+function validateAcyclic(
+  nodes: readonly CanonicalNode[],
+  edges: readonly CanonicalEdge[]
+): Result<{ layers: Map<string, number> }, 'CYCLE_DETECTED'>
+
+// Topological layer assignment (throws if cyclic)
+function topoLayers(
+  nodes: readonly CanonicalNode[],
+  edges: readonly CanonicalEdge[]
+): Map<string, number>
+
+// Nodes available to work on (prereqs all satisfied)
+function availableNodes(roadmap: Readonly<Roadmap>): UserNode[]
+
+// PRD 8.1 baseline roadmap generation
+function generateBaselineRoadmap(
+  canonicalGraph: Readonly<CanonicalGraph>,
+  selectedKnownNodeIds: readonly string[],
+  levelsByArea: Readonly<LevelsByArea>,
+  userId: string
+): Result<Roadmap, 'CYCLE_IN_CANONICAL_GRAPH' | 'EMPTY_GRAPH'>
+
+// PRD 8.2 injection — adds node after insertAfterIds
+function applyInjection(
+  roadmap: Readonly<Roadmap>,
+  newCanonicalNode: CanonicalNode,
+  insertAfterIds: readonly string[]
+): Result<Roadmap, 'NODE_ALREADY_EXISTS' | 'WOULD_CREATE_CYCLE' | 'INSERT_AFTER_NODE_NOT_IN_ROADMAP'>
+
+// PRD 8.2 override — archives old node, adds replacement with fast_track=true
+function applyOverride(
+  roadmap: Readonly<Roadmap>,
+  oldNodeId: string,
+  newCanonicalNode: CanonicalNode
+): Result<Roadmap, 'OLD_NODE_NOT_IN_ROADMAP' | 'NEW_NODE_ALREADY_IN_ROADMAP' | 'WOULD_CREATE_CYCLE'>
+```
+
+#### Exported API — `@repo/schemas`
+
+```ts
+// Enums
+NodeTypeSchema        → 'skill' | 'tool' | 'workflow'
+NodeStatusSchema      → 'known' | 'todo' | 'in_progress' | 'completed' | 'archived'
+CanonicalStatusSchema → 'draft' | 'approved' | 'deprecated'
+OriginSchema          → 'baseline' | 'injection' | 'override'
+VerdictTypeSchema     → 'shield' | 'injection' | 'override'
+UserVerdictStateSchema→ 'precomputed' | 'previewed' | 'confirmed' | 'dismissed' | 'applied' | 'failed'
+ExperienceLevelSchema → 'beginner' | 'working' | 'expert'
+
+// Domain types (all Zod schemas + inferred TypeScript types)
+CanonicalNodeSchema, CanonicalEdgeSchema, CanonicalGraphSchema
+UserNodeSchema, RoadmapSchema
+NewsItemProcessingOutputSchema   // PRD 9.1 output contract
+VerdictOutputSchema              // PRD 9.2 output contract
+LevelsByAreaSchema               // Record<areaSlug, ExperienceLevel>
+```
+
+#### Test results
+
+```
+pnpm test --coverage  →  ✅  72 tests passed (4 test files)
+
+Coverage (packages/graph/src/index.ts):
+  Statements : 98.72 %
+  Branches   : 81.48 %  (uncovered: defensive ?? operators on typed inputs)
+  Functions  : 100 %
+  Lines      : 100 %
+```
+
+#### PRD invariants covered by tests
+
+- ✅ Canonical graph and every user roadmap are acyclic (validateAcyclic, cycle-guard in applyInjection/applyOverride/generateBaselineRoadmap)
+- ✅ user_nodes of status `completed` or `archived` are never hard-deleted (applyOverride archives, never deletes; test for override with completed dependents)
+- ✅ Only `approved` canonical nodes appear in a user roadmap (generateBaselineRoadmap filters to `approved` only)
+- ✅ Sponsored placements have no foreign key to nodes (sponsor integrity test asserts no graph fn accepts sponsor data)
+- ✅ All functions are pure and immutable (7 immutability tests)
+- ✅ 200-node graph runs all core operations in < 50 ms (perf test: actual < 10 ms)
+
+---
+
+## Next
+
+### Prompt 3: LLM provider layer, Edge Functions, news pipeline

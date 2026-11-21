@@ -1,12 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { isGraphValid } from '@repo/graph';
 import { validateDummy } from '@repo/schemas';
 import { getLLMProviderInfo } from '@repo/llm';
 
 export default function FeedScreen() {
   const dummy = validateDummy({ id: 'feed-demo', name: 'Atlas Feed' });
-  const graphStatus = isGraphValid();
   const llmInfo = getLLMProviderInfo('mock', 'fast');
 
   return (
@@ -15,7 +13,6 @@ export default function FeedScreen() {
       <Text style={styles.subtitle}>AI Upskilling Platform (Red Button)</Text>
       <View style={styles.card}>
         <Text style={styles.badge}>Package Wiring Check:</Text>
-        <Text style={styles.text}>@repo/graph isGraphValid: {String(graphStatus)}</Text>
         <Text style={styles.text}>@repo/schemas DummySchema: {dummy.name}</Text>
         <Text style={styles.text}>
           @repo/llm Provider: {llmInfo.name} ({llmInfo.tier})

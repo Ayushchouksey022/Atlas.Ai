@@ -4,8 +4,12 @@
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "dependencies": {
+    "@repo/schemas": "workspace:*"
+  },
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest --coverage",
     "typecheck": "tsc --noEmit"
   }
 }
