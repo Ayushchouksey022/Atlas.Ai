@@ -17,7 +17,8 @@
     "db:reset": "supabase db reset",
     "db:migrate": "supabase migration up",
     "graph:validate": "tsx scripts/validate-graph.ts",
-    "graph:seed": "tsx scripts/seed-graph.ts"
+    "graph:seed": "tsx scripts/seed-graph.ts",
+    "llm:smoke": "tsx packages/llm/src/smoke.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

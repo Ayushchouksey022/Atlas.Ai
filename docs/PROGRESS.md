@@ -636,9 +636,94 @@ pnpm test:e2e
 
 ---
 
+### Prompt 8: LLM Integration Foundation (`/packages/llm`)
+
+#### 1. Core LLM Architecture & Provider Interface (PRD Section 9)
+- Implemented `LLMProvider` contract in `packages/llm/src/types.ts`:
+  - `generateJSON<T>(args: GenerateJSONArgs<T>): Promise<T>`: structured JSON generation with Zod schema validation and automated retries.
+  - `generateText(args: GenerateTextArgs): Promise<string>`: free-form text generation.
+  - Supported tiers: `'fast'` (default `gpt-4o-mini`) and `'strong'` (default `gpt-4o`) dynamically resolved from environment variables (`LLM_MODEL_FAST`, `LLM_MODEL_STRONG`).
+- **Abstract Base Provider (`packages/llm/src/providers/base.ts`)**:
+  - Implements the retry loop: parses JSON, validates against Zod schema; upon validation failure or parse error, retries up to 2 times (3 total attempts) with specific error diagnostics appended to the user prompt.
+  - Throws typed `LLMValidationError` containing raw output, Zod issues, prompt name, and attempt count if retries are exhausted.
+  - Handles latency measurement with `performance.now()` and token usage tracking.
+  - Re-throws underlying network/API errors (`LLMProviderError`) without masking them as validation errors.
+
+#### 2. Provider Adapters
+- **OpenAI Adapter (`packages/llm/src/providers/openai.ts`)**:
+  - Thin, isolated adapter using native Node/Edge `fetch` (zero extra third-party SDK dependencies).
+  - Configurable with `LLM_API_KEY` or `OPENAI_API_KEY`.
+  - Supports OpenAI JSON mode (`response_format: { type: 'json_object' }`).
+  - Robust error handling returning typed `LLMProviderError` with HTTP status codes.
+- **Deterministic Mock Provider (`packages/llm/src/providers/mock.ts`)**:
+  - Used in all unit tests and local development without requiring external network access or API keys.
+  - Returns deterministic fixtures conforming to all 6 prompt schemas.
+  - Configurable FIFO response queue (`enqueueResponse`) for simulating parsing errors, schema failures, and retry workflows in tests.
+- **Provider Factory (`packages/llm/src/factory.ts`)**:
+  - `getLLMProvider()`: automatically selects `OpenAIProvider` when `LLM_PROVIDER=openai` or `MockProvider` otherwise.
+
+#### 3. Pluggable Observability & Non-PII Telemetry
+- **Telemetry Schema (`packages/llm/src/types.ts` & `supabase/migrations/20261122000003_create_llm_calls_table.sql`)**:
+  - Records: `prompt_name`, `prompt_version`, `model`, `tier`, `latency_ms`, `prompt_tokens`, `completion_tokens`, `total_tokens`, `success`, `error`, `created_at`.
+  - **Non-PII Invariant**: Strictly omits user prompts, raw user input, and personally identifiable information.
+- **Observability Sinks (`packages/llm/src/observability.ts`)**:
+  - `ConsoleObservabilitySink`: concise terminal telemetry in development mode.
+  - `createSupabaseObservabilitySink`: decoupled sink writing telemetry rows to the `llm_calls` table.
+  - `createCompositeSink`: parallel dispatch across multiple configured sinks.
+
+#### 4. Versioned Prompt Library (6 Tasks from PRD Section 9 & 10)
+All prompts enforce the mandatory **anti-hallucination instruction**: *"Say 'unknown' rather than invent versions, release dates, flags, commands, or unverified claims."*
+1. **News Summary & Score (Task 1 / PRD 9.1)**: `packages/llm/src/prompts/newsSummary.ts`
+   - Tier: `fast`. Outputs 3 actionable bullets (<25 words each, no marketing fluff), integer impact score 1-10 with rationale, tags, and proposed tool.
+2. **Node Mapping (Task 2)**: `packages/llm/src/prompts/nodeMapping.ts`
+   - Tier: `fast`. Maps verified news items to candidate canonical nodes with confidence score (0.0 - 1.0) and rationale.
+3. **Red Button Verdict (Task 3 / PRD 9.2)**: `packages/llm/src/prompts/verdict.ts`
+   - Tier: `strong`. Evaluates differential impact on a developer's roadmap slice (`shield`, `injection`, `override`) with concise reasoning under 60 words (<400 chars).
+4. **Graph Change Draft (Task 4)**: `packages/llm/src/prompts/graphChangeDraft.ts`
+   - Tier: `strong`. Drafts new canonical nodes, prerequisite edges, and supersedes links for editorial review.
+5. **Quickstart Guide (Task 5 / PRD 10.4)**: `packages/llm/src/prompts/quickstartGuide.ts`
+   - Tier: `strong`. Generates actionable 20-minute onboarding guides with 3-8 numbered steps, time estimates, verification commands, and common pitfalls.
+6. **Personalization Annotation (Task 6)**: `packages/llm/src/prompts/personalization.ts`
+   - Tier: `fast`. Generates personalized relevance notes, priority levels, and tailored tips based on developer experience level in the area.
+
+#### 5. Manual Smoke Test Script
+- Added script `pnpm llm:smoke` (`packages/llm/src/smoke.ts`):
+  - Safely skips with clear guidance if `LLM_API_KEY` is not present.
+  - If API key is present, calls the live OpenAI provider once for the news summary prompt and outputs the validated result.
+
+#### 6. Verification & Test Suite
+- **Vitest Unit & Integration Tests (123 tests passing across 10 test suites)**:
+  - `packages/llm/src/index.test.ts` (13 tests):
+    - Deterministic fixture validation for all 6 prompt schemas using `MockProvider`.
+    - Retry logic: recovery from malformed JSON strings on retry.
+    - Retry logic: recovery from Zod schema violations on retry with error diagnosis.
+    - Error handling: throwing `LLMValidationError` after exceeding retry budget.
+    - Invariant: anti-hallucination instruction verified on all 6 system prompts.
+    - Observability: non-PII telemetry payload verification.
+    - Sinks: composite sink and Supabase table sink verification.
+    - OpenAI adapter: authentication error and HTTP request handling with mocked fetch.
+    - Factory: provider resolution.
+  - All existing test suites passing (`@repo/graph`, `@repo/schemas`, mobile-web, Supabase edge functions).
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+#### How to Run
+
+```bash
+# Run unit & integration tests
+pnpm test
+
+# Run TypeScript type check and linter
+pnpm typecheck && pnpm lint
+
+# Run LLM live smoke test (requires LLM_API_KEY or OPENAI_API_KEY)
+pnpm llm:smoke
+```
+
+---
+
 ## Next
 
-### Prompt 8: News Ingestion Pipeline and Feed Tab
+### Prompt 9: News Ingestion Pipeline and Feed Tab
 
 - Ingestion pipeline (Edge Function or scheduled worker):
   - Ingestion from RSS/GitHub/newsletter sources into `news_sources` and `news_items`.

@@ -183,3 +183,67 @@ export const LevelsByAreaSchema = z.record(
   z.enum(['beginner', 'working', 'expert']),
 );
 export type LevelsByArea = z.infer<typeof LevelsByAreaSchema>;
+
+// ---------------------------------------------------------------------------
+// Additional LLM task output schemas — PRD Section 9 & 10
+// ---------------------------------------------------------------------------
+
+/** Node Mapping (Task 2): Candidate retrieval & canonical node matching */
+export const NodeMappingOutputSchema = z.object({
+  candidate_slugs: z.array(z.string()),
+  primary_slug: z.string().nullable(),
+  confidence: z.number().min(0).max(1),
+  rationale: z.string().min(1),
+});
+export type NodeMappingOutput = z.infer<typeof NodeMappingOutputSchema>;
+
+/** Graph Change Draft (Task 4): Proposed new canonical node/edges for editor queue */
+export const GraphChangeDraftOutputSchema = z.object({
+  proposed_node: z.object({
+    slug: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().default(''),
+    node_type: NodeTypeSchema,
+    level: z.number().int().min(0),
+    area: z.string().min(1),
+  }),
+  proposed_edges: z.array(
+    z.object({
+      from_slug: z.string().min(1),
+      to_slug: z.string().min(1),
+    }),
+  ),
+  supersedes_slugs: z.array(z.string()),
+  rationale: z.string().min(1),
+});
+export type GraphChangeDraftOutput = z.infer<typeof GraphChangeDraftOutputSchema>;
+
+/** Quickstart Guide (Task 5 / PRD Section 10.4): 20-minute guide with 5-8 steps */
+export const GuideStepSchema = z.object({
+  step_number: z.number().int().min(1),
+  title: z.string().min(1),
+  instruction: z.string().min(1),
+  estimated_minutes: z.number().min(1).max(20),
+  code_snippet: z.string().nullable().optional(),
+});
+export type GuideStep = z.infer<typeof GuideStepSchema>;
+
+export const QuickstartGuideOutputSchema = z.object({
+  goal: z.string().min(1).max(200), // 1 line
+  prerequisites: z.array(z.string()),
+  steps: z.array(GuideStepSchema).min(3).max(10), // 5-8 typical numbered steps
+  verification: z.string().min(1), // Verify it worked
+  common_pitfalls: z.array(z.string()),
+  source_links: z.array(z.string().url()),
+});
+export type QuickstartGuideOutput = z.infer<typeof QuickstartGuideOutputSchema>;
+
+/** Personalization Annotation (Task 6): Per-node tips based on experience level */
+export const PersonalizationAnnotationOutputSchema = z.object({
+  node_slug: z.string().min(1),
+  relevance_note: z.string().min(1),
+  recommended_priority: z.enum(['high', 'medium', 'low']),
+  tailored_tips: z.array(z.string()).min(1),
+});
+export type PersonalizationAnnotationOutput = z.infer<typeof PersonalizationAnnotationOutputSchema>;
+
