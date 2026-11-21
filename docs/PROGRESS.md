@@ -284,13 +284,89 @@ Coverage (packages/graph/src/index.ts):
 
 ---
 
-## Next
-
 ### Prompt 4: App shell and authentication
 
-- Set up Expo Router structure: `(auth)` group with sign-in and sign-up, `(app)` group with bottom tabs Feed and Roadmap, Profile/Settings screen.
-- Supabase client with secure token storage (`expo-secure-store` on native, `localStorage` on web) and Zustand auth store/provider.
-- Route guard: signed-out -> `(auth)`, signed-in without onboarding -> `/onboarding`, otherwise tabs.
-- Design system foundation: light/dark theme tokens, base components (Button, Card, Badge, Screen), verdict visual language.
-- Profile creation trigger on signup.
-- Playwright E2E tests for auth and route guarding.
+#### Deliverables & Implemented Architecture
+
+1. **Expo Router File-Based Route Hierarchy (`/apps/mobile-web/app/`)**:
+   - `(auth)` group:
+     - `_layout.tsx`: Stack layout with animations.
+     - `sign-in.tsx`: Sign-in screen with email/password and Google OAuth, error banners, and touch-accessible inputs.
+     - `sign-up.tsx`: Sign-up screen with display name, email, password, and Google OAuth.
+   - `(app)` group:
+     - `_layout.tsx`: Bottom tabs (Feed & Roadmap) with header right profile navigation icon (`headerRight`).
+     - `index.tsx`: Feed screen showing active user updates and Red Button verdict visual language demonstration.
+     - `roadmap.tsx`: Learning roadmap screen placeholder.
+   - `onboarding.tsx`:
+     - Placeholder screen for pending onboarding users with simulation controls.
+   - `profile.tsx`:
+     - Profile & Settings screen with user details, domain status, appearance toggle (Light/Dark), and Sign Out.
+   - `_layout.tsx`:
+     - Root layout wrapping `SafeAreaProvider`, `QueryClientProvider` (TanStack Query), `ThemeProvider`, and `AuthProvider`.
+
+2. **Cross-Platform Supabase Storage & Client (`/apps/mobile-web/src/lib/`)**:
+   - `storage.ts`: Automatic fallback between `expo-secure-store` on native and `localStorage` on web.
+   - `supabase.ts`: Configured `@supabase/supabase-js` client using `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+   - `authStore.ts`: Zustand store managing auth state, profile fetching, password auth, Google OAuth, signout, and local test mock hooks.
+   - `AuthProvider.tsx`: React Context and route guard enforcing:
+     - Signed-out users are redirected to `/(auth)/sign-in`.
+     - Signed-in users without `onboarding_completed` are redirected to `/onboarding`.
+     - Signed-in users with completed onboarding are routed to `/(app)`.
+
+3. **Design System Foundation (`/apps/mobile-web/src/design-system/`)**:
+   - `theme.ts`: Light and dark color palettes, spacing, typography, radii, and `MIN_TOUCH_TARGET = 44px` (PRD Section 14).
+   - `ThemeContext.tsx`: Context provider with dynamic color scheme switching.
+   - Base UI components:
+     - `Button`: Multiple variants, loading states, accessibility attributes.
+     - `Card`: Outlined and elevated containers.
+     - `Badge`: Status and tag indicators.
+     - `Input`: Label, helper text, error text, accessible focus styles.
+     - `Screen`: SafeArea wrapper with scrollable/fixed layouts, error banners, and loading states.
+     - `VerdictBadge`: Strictly adheres to PRD Section 11 & Section 14 invariant:
+       - **Shield**: Blue badge + shield icon + label
+       - **Injection**: Green badge + plus-node icon + label
+       - **Override**: Amber badge + swap icon + label
+       - *Rule: Always icon + label, never color alone.*
+
+4. **Security & Database Trigger**:
+   - Migration `/supabase/migrations/20261122000002_create_profile_on_signup_trigger.sql` adds trigger `on_auth_user_created` executing `public.handle_new_user()`.
+   - Documented in `/docs/decisions.md` (Decision 5: Database Trigger chosen over client-side profile creation for atomicity, tamper resistance, and zero orphan users).
+
+5. **Playwright E2E Testing Suite (`/e2e/auth.spec.ts`)**:
+   - Web server script `scripts/serve-web.js` for lightweight SPA serving.
+   - 4 E2E tests:
+     - Unauthenticated user redirected to sign-in.
+     - Navigation between Sign In and Sign Up screens.
+     - Full signup -> onboarding redirect -> complete onboarding -> feed tab -> profile -> signout flow.
+     - Returning user sign-in.
+   - Run command: `pnpm test:e2e` (All 4 passed).
+
+#### How to Run
+
+```bash
+# Run web development server
+pnpm web
+
+# Run Playwright E2E tests
+pnpm web:export
+pnpm test:e2e
+
+# Run unit tests and typecheck
+pnpm test
+pnpm typecheck
+```
+
+---
+
+## Next
+
+### Prompt 5: Onboarding and baseline roadmap
+
+- Onboarding multi-step flow (target <= 5 min):
+  - Goal card (domain: AI-assisted software development)
+  - Structured picker grouped by area (`editors-ides`, `ai-assistants`, `languages-frameworks`, `testing`, `deployment`, `agents-automation`)
+  - Level selection per area (Beginner / Working / Expert)
+  - Generation screen
+- Supabase Edge Function `create-baseline-roadmap` (server-side, single transaction using `@repo/graph` `generateBaselineRoadmap`).
+- Event tracking: `onboarding_started` and `onboarding_completed`.
+- Integration and Playwright E2E tests for onboarding.

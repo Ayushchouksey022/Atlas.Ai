@@ -26,3 +26,12 @@
 - **Date:** 2026-11-19
 - **Decision:** Use TypeScript project references and path aliases (`@repo/graph`, `@repo/schemas`, `@repo/llm`) pointing to `../../packages/*/src`.
 - **Rationale:** Allows instant type-checking (`tsc -b`), fast test execution (`vitest run`), and direct Metro bundling in Expo without requiring intermediary build artifacts or precompilation steps.
+
+### 5. Profile Creation on Signup: Database Trigger vs Client Call
+
+- **Date:** 2026-11-22
+- **Decision:** Implement profile creation via a database trigger (`on_auth_user_created` executing `public.handle_new_user()`) on `auth.users`, supplemented by client-side fallback query.
+- **Rationale:**
+  1. **Atomicity & Consistency:** A database trigger executes within the signup transaction. If the user creates an account, their `public.profiles` row is guaranteed to exist immediately with `onboarding_completed: false`.
+  2. **Security & Tamper Resistance:** Client-side creation requires opening INSERT permissions on `public.profiles` to `authenticated` users without strict validation of initial fields, risking arbitrary client writes. A trigger runs as `security definer` with controlled defaults.
+  3. **Fault Tolerance:** If a user closes the browser or loses network immediately after `supabase.auth.signUp()`, a client-side call could fail, leaving an orphaned auth user with no profile. The database trigger guarantees zero orphaned auth users.
