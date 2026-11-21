@@ -245,6 +245,52 @@ Coverage (packages/graph/src/index.ts):
 
 ---
 
+### Prompt 3: Seed canonical graph tooling and data
+
+#### Deliverables & Implemented Tools
+
+1. **Seed Dataset (`/supabase/seed/canonical-graph/ai-assisted-software-development.json`)**:
+   - 48 nodes covering all 6 core onboarding areas:
+     - `editors-ides` (10 nodes)
+     - `ai-assistants` (10 nodes)
+     - `languages-frameworks` (7 nodes)
+     - `testing` (7 nodes)
+     - `deployment` (6 nodes)
+     - `agents-automation` (8 nodes)
+   - 53 directed prerequisite edges across levels 0 to 4.
+   - 3 supersedes links (e.g. `legacy-ai-autocomplete` → `context-aware-inline-completion`).
+   - Specific commercial products (Cursor, Windsurf, GitHub Copilot, Claude Code, v0, Aider, Devin) marked as `status: "draft"` with required `todo_note` for editorial verification.
+   - Generic concepts and open standards marked as `status: "approved"`.
+
+2. **Schema & Migration Updates**:
+   - Migration `/supabase/migrations/20261122000001_add_area_to_canonical_nodes.sql` adding `area text` column and index.
+   - Database types (`packages/schemas/src/database.types.ts`) updated with `area`.
+   - Zod schemas in `packages/schemas/src/domain.ts` updated with `area` and full seed schemas (`SeedNodeSchema`, `SeedEdgeSchema`, `SeedSupersedesSchema`, `CanonicalGraphSeedSchema`).
+
+3. **Validation Tooling (`pnpm graph:validate` / `packages/graph/src/validate.ts`)**:
+   - Verifies: unique slugs, edges reference existing nodes, strict DAG acyclicity (via `@repo/graph`), supersedes validity, level consistency (`level(to) > level(from)`), and no orphan nodes (all `level > 0` nodes have prerequisites reaching level 0).
+   - Prints clear breakdown by area, level, and validation status.
+
+4. **Seeding Tooling (`pnpm graph:seed` / `scripts/seed-graph.ts`)**:
+   - Idempotently upserts domain, canonical nodes, canonical edges, and node supersedes into Supabase using the service role key.
+   - Safe to run repeatedly without creating duplicate records.
+   - Handles offline database gracefully with actionable instructions when Docker is not active.
+
+5. **Curator Guide (`/docs/seed-graph-guide.md`)**:
+   - Comprehensive guide for adding nodes, assigning levels/areas, marking supersedes, and the editorial review checklist.
+
+6. **Test Suite**:
+   - 9 new unit tests in `packages/graph/src/seed_validation.test.ts` testing the live dataset and adversarial cases (duplicate slugs, cyclic edges, level inconsistency, orphans, non-existent files). Total workspace tests: 81 passed.
+
+---
+
 ## Next
 
-### Prompt 3: LLM provider layer, Edge Functions, news pipeline
+### Prompt 4: App shell and authentication
+
+- Set up Expo Router structure: `(auth)` group with sign-in and sign-up, `(app)` group with bottom tabs Feed and Roadmap, Profile/Settings screen.
+- Supabase client with secure token storage (`expo-secure-store` on native, `localStorage` on web) and Zustand auth store/provider.
+- Route guard: signed-out -> `(auth)`, signed-in without onboarding -> `/onboarding`, otherwise tabs.
+- Design system foundation: light/dark theme tokens, base components (Button, Card, Badge, Screen), verdict visual language.
+- Profile creation trigger on signup.
+- Playwright E2E tests for auth and route guarding.

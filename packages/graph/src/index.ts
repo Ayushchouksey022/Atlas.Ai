@@ -302,7 +302,9 @@ export function generateBaselineRoadmap(
   for (const [area, level] of Object.entries(levelsByArea)) {
     if (level === 'beginner') continue; // no bonus ancestors
 
-    const areaNodes = approvedNodes.filter((n) => n.slug.startsWith(area));
+    const areaNodes = approvedNodes.filter(
+      (n) => n.area === area || n.slug.startsWith(area),
+    );
 
     if (level === 'expert') {
       // All ancestors of expert nodes → known
@@ -497,6 +499,8 @@ export type ApplyOverrideError =
   | 'WOULD_CREATE_CYCLE';
 
 export type ApplyOverrideResult = Result<Roadmap, ApplyOverrideError>;
+
+export * from './validate';
 
 /**
  * PRD Section 8.2 — applyOverride

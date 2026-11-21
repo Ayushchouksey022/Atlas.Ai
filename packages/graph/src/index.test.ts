@@ -38,6 +38,7 @@ function makeNode(id: string, level = 0): CanonicalNode {
     description: '',
     node_type: 'skill',
     level,
+    area: 'editors-ides',
     status: 'approved',
     external_url: null,
     version_tag: null,

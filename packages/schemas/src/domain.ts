@@ -19,6 +19,7 @@ export const CanonicalNodeSchema = z.object({
   description: z.string().default(''),
   node_type: NodeTypeSchema,
   level: z.number().int().min(0),
+  area: z.string().min(1).default('general'),
   status: CanonicalStatusSchema.default('approved'),
   external_url: z.string().url().nullable().default(null),
   version_tag: z.string().nullable().default(null),
@@ -39,6 +40,62 @@ export const CanonicalGraphSchema = z.object({
   edges: z.array(CanonicalEdgeSchema),
 });
 export type CanonicalGraph = z.infer<typeof CanonicalGraphSchema>;
+
+// ---------------------------------------------------------------------------
+// Canonical graph seed format — PRD Appendix A & Prompt 3
+// ---------------------------------------------------------------------------
+
+export const CanonicalAreaSchema = z.enum([
+  'editors-ides',
+  'ai-assistants',
+  'languages-frameworks',
+  'testing',
+  'deployment',
+  'agents-automation',
+]);
+export type CanonicalArea = z.infer<typeof CanonicalAreaSchema>;
+
+export const SeedNodeSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().default(''),
+  type: NodeTypeSchema,
+  level: z.number().int().min(0),
+  area: z.string().min(1),
+  status: CanonicalStatusSchema.default('approved'),
+  external_url: z.string().url().nullable().optional(),
+  version_tag: z.string().nullable().optional(),
+  todo_note: z.string().optional(),
+});
+export type SeedNode = z.infer<typeof SeedNodeSchema>;
+
+export const SeedEdgeSchema = z.tuple([z.string().min(1), z.string().min(1)]);
+export type SeedEdge = z.infer<typeof SeedEdgeSchema>;
+
+export const SeedSupersedesTupleSchema = z.union([
+  z.tuple([z.string().min(1), z.string().min(1)]),
+  z.tuple([z.string().min(1), z.string().min(1), z.string()]),
+]);
+
+export const SeedSupersedesObjectSchema = z.object({
+  old_node: z.string().min(1),
+  new_node: z.string().min(1),
+  note: z.string().optional(),
+});
+
+export const SeedSupersedesSchema = z.union([
+  SeedSupersedesTupleSchema,
+  SeedSupersedesObjectSchema,
+]);
+export type SeedSupersedes = z.infer<typeof SeedSupersedesSchema>;
+
+export const CanonicalGraphSeedSchema = z.object({
+  domain: z.string().min(1),
+  nodes: z.array(SeedNodeSchema),
+  edges: z.array(SeedEdgeSchema),
+  supersedes: z.array(SeedSupersedesSchema).default([]),
+});
+export type CanonicalGraphSeed = z.infer<typeof CanonicalGraphSeedSchema>;
 
 // ---------------------------------------------------------------------------
 // User roadmap — PRD Section 5 & 7

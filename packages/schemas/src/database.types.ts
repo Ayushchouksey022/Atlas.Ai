@@ -109,6 +109,7 @@ export interface Database {
           description: string | null;
           node_type: 'skill' | 'tool' | 'workflow';
           level: number;
+          area: string | null;
           status: 'draft' | 'approved' | 'deprecated';
           external_url: string | null;
           version_tag: string | null;
@@ -123,6 +124,7 @@ export interface Database {
           description?: string | null;
           node_type: 'skill' | 'tool' | 'workflow';
           level?: number;
+          area?: string | null;
           status?: 'draft' | 'approved' | 'deprecated';
           external_url?: string | null;
           version_tag?: string | null;
@@ -137,6 +139,7 @@ export interface Database {
           description?: string | null;
           node_type?: 'skill' | 'tool' | 'workflow';
           level?: number;
+          area?: string | null;
           status?: 'draft' | 'approved' | 'deprecated';
           external_url?: string | null;
           version_tag?: string | null;

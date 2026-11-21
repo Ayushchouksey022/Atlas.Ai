@@ -1,0 +1,522 @@
+{
+  "domain": "ai-assisted-software-development",
+  "nodes": [
+    {
+      "slug": "modern-ide-fundamentals",
+      "name": "Modern IDE & Editor Fundamentals",
+      "description": "Core workspace configurations, keybindings, language servers (LSP), and editor extensions.",
+      "type": "skill",
+      "level": 0,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "prompting-basics",
+      "name": "Prompting Basics for Code",
+      "description": "Constructing clear, constrained system and user prompts for code synthesis and refactoring.",
+      "type": "skill",
+      "level": 0,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "polyglot-syntax-fundamentals",
+      "name": "Polyglot Syntax & Type Systems",
+      "description": "Understanding strict type systems, interfaces, and syntax patterns across modern languages.",
+      "type": "skill",
+      "level": 0,
+      "area": "languages-frameworks",
+      "status": "approved"
+    },
+    {
+      "slug": "unit-testing-fundamentals",
+      "name": "Unit Testing & Test Fixtures",
+      "description": "Principles of deterministic unit tests, assertions, mocking boundaries, and coverage metrics.",
+      "type": "skill",
+      "level": 0,
+      "area": "testing",
+      "status": "approved"
+    },
+    {
+      "slug": "git-and-ci-fundamentals",
+      "name": "Git & CI Pipeline Fundamentals",
+      "description": "Branching workflows, atomic commits, pull requests, and automated continuous integration checks.",
+      "type": "skill",
+      "level": 0,
+      "area": "deployment",
+      "status": "approved"
+    },
+    {
+      "slug": "cli-and-scripting-fundamentals",
+      "name": "CLI & Shell Scripting Fundamentals",
+      "description": "POSIX shell interaction, standard streams (stdin/stdout/stderr), and headless automation.",
+      "type": "skill",
+      "level": 0,
+      "area": "agents-automation",
+      "status": "approved"
+    },
+    {
+      "slug": "legacy-ai-autocomplete",
+      "name": "Legacy AI Autocomplete",
+      "description": "Early naive next-token code completion plugins without codebase-wide semantic awareness.",
+      "type": "tool",
+      "level": 1,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "static-snippet-templates",
+      "name": "Static Snippet Templates",
+      "description": "Fixed boilerplate code templates manually inserted via editor triggers.",
+      "type": "tool",
+      "level": 1,
+      "area": "languages-frameworks",
+      "status": "approved"
+    },
+    {
+      "slug": "single-prompt-scripting",
+      "name": "Single-Prompt Scripting",
+      "description": "Generating standalone scripts in one-shot prompts without iterative verification.",
+      "type": "workflow",
+      "level": 1,
+      "area": "agents-automation",
+      "status": "approved"
+    },
+    {
+      "slug": "in-editor-ai-extension-setup",
+      "name": "In-Editor AI Extension Setup",
+      "description": "Configuring provider endpoints, model keys, and latency settings inside developer editors.",
+      "type": "skill",
+      "level": 1,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "context-window-hygiene",
+      "name": "Context Window Hygiene",
+      "description": "Pruning irrelevant files, managing token budgets, and preventing hallucination in large chats.",
+      "type": "skill",
+      "level": 1,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "chat-assisted-debugging",
+      "name": "Chat-Assisted Debugging",
+      "description": "Pasting stack traces and compiler diagnostics into chat assistants for root cause isolation.",
+      "type": "workflow",
+      "level": 1,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "llm-scaffolding-generators",
+      "name": "LLM Scaffolding Generators",
+      "description": "Generating initial project directories, types, and schema models from plain-language requirements.",
+      "type": "workflow",
+      "level": 1,
+      "area": "languages-frameworks",
+      "status": "approved"
+    },
+    {
+      "slug": "test-generation-from-specs",
+      "name": "Test Generation from Specifications",
+      "description": "Synthesizing test cases from markdown acceptance criteria and docstrings.",
+      "type": "workflow",
+      "level": 1,
+      "area": "testing",
+      "status": "approved"
+    },
+    {
+      "slug": "git-commit-and-pr-summaries",
+      "name": "AI Commit & PR Summaries",
+      "description": "Generating semantic Git commit messages and pull request descriptions from git diffs.",
+      "type": "workflow",
+      "level": 1,
+      "area": "deployment",
+      "status": "approved"
+    },
+    {
+      "slug": "context-aware-inline-completion",
+      "name": "Context-Aware Inline Completion",
+      "description": "Ghost-text code completions that read active file imports, sister tabs, and recent edits.",
+      "type": "tool",
+      "level": 2,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "codebase-indexing-and-rag",
+      "name": "Codebase Indexing & Vector Search",
+      "description": "Generating AST embeddings and keyword indexes over local repositories for semantic retrieval.",
+      "type": "skill",
+      "level": 2,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "cursor-editor",
+      "name": "Cursor Editor",
+      "description": "AI-native VS Code fork featuring codebase indexing, composer multi-file edits, and tab completion.",
+      "type": "tool",
+      "level": 2,
+      "area": "editors-ides",
+      "status": "draft",
+      "todo_note": "TODO: verify product features, versions and relationships against official documentation before approval"
+    },
+    {
+      "slug": "windsurf-editor",
+      "name": "Windsurf Editor",
+      "description": "Agentic IDE by Codeium with cascade flows, collaborative AI modes, and real-time project awareness.",
+      "type": "tool",
+      "level": 2,
+      "area": "editors-ides",
+      "status": "draft",
+      "todo_note": "TODO: verify product features, versions and relationships against official documentation before approval"
+    },
+    {
+      "slug": "github-copilot",
+      "name": "GitHub Copilot",
+      "description": "AI pair programmer supporting inline completions, chat sidebar, and workspace indexing.",
+      "type": "tool",
+      "level": 2,
+      "area": "ai-assistants",
+      "status": "draft",
+      "todo_note": "TODO: verify product features, versions and relationships against official documentation before approval"
+    },
+    {
+      "slug": "claude-code",
+      "name": "Claude Code CLI",
+      "description": "Agentic terminal CLI tool powered by Claude that directly explores codebases and edits files.",
+      "type": "tool",
+      "level": 2,
+      "area": "ai-assistants",
+      "status": "draft",
+      "todo_note": "TODO: verify product features, versions and relationships against official documentation before approval"
+    },
+    {
+      "slug": "ai-pair-programming-workflow",
+      "name": "AI Pair-Programming Workflow",
+      "description": "Iterative driver-navigator workflow alternating between human specification and AI draft generation.",
+      "type": "workflow",
+      "level": 2,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "type-safe-schema-synthesis",
+      "name": "Type-Safe Schema Synthesis",
+      "description": "Prompting for strict Zod, TypeScript, and SQL schemas with automatic validation checks.",
+      "type": "skill",
+      "level": 2,
+      "area": "languages-frameworks",
+      "status": "approved"
+    },
+    {
+      "slug": "v0-dev",
+      "name": "v0 by Vercel",
+      "description": "Generative UI tool producing React and Tailwind CSS components from natural language prompts.",
+      "type": "tool",
+      "level": 2,
+      "area": "languages-frameworks",
+      "status": "draft",
+      "todo_note": "TODO: verify product features, versions and relationships against official documentation before approval"
+    },
+    {
+      "slug": "automated-edge-case-testing",
+      "name": "Automated Edge Case Test Generation",
+      "description": "Prompting models to inspect boundary conditions, nullability, and concurrency pitfalls in test suites.",
+      "type": "workflow",
+      "level": 2,
+      "area": "testing",
+      "status": "approved"
+    },
+    {
+      "slug": "mock-service-generation",
+      "name": "Mock API & Fixture Generation",
+      "description": "Creating realistic API mocks, HTTP intercepts, and database seed datasets using generative models.",
+      "type": "skill",
+      "level": 2,
+      "area": "testing",
+      "status": "approved"
+    },
+    {
+      "slug": "ci-ai-review-bots",
+      "name": "CI Automated AI Review Bots",
+      "description": "Automated pull request reviewers identifying lint issues, performance regressions, and style breaches.",
+      "type": "tool",
+      "level": 2,
+      "area": "deployment",
+      "status": "approved"
+    },
+    {
+      "slug": "iac-generation",
+      "name": "Infrastructure-as-Code (IaC) Synthesis",
+      "description": "Generating Terraform, Dockerfiles, and Helm charts with security baseline checks.",
+      "type": "workflow",
+      "level": 2,
+      "area": "deployment",
+      "status": "approved"
+    },
+    {
+      "slug": "headless-task-runners",
+      "name": "Headless Script & CLI Task Runners",
+      "description": "Invoking LLM-driven scripts from command-line workflows with pipeable JSON inputs.",
+      "type": "workflow",
+      "level": 2,
+      "area": "agents-automation",
+      "status": "approved"
+    },
+    {
+      "slug": "aider-cli",
+      "name": "Aider CLI",
+      "description": "Command-line AI coding tool that pairs with LLMs to edit local Git repositories with auto-commits.",
+      "type": "tool",
+      "level": 2,
+      "area": "agents-automation",
+      "status": "draft",
+      "todo_note": "TODO: verify product features, versions and relationships against official documentation before approval"
+    },
+    {
+      "slug": "multi-file-refactoring-workflows",
+      "name": "Multi-File Refactoring Workflows",
+      "description": "Executing coordinated cross-file renames, interface migrations, and deprecation removals.",
+      "type": "workflow",
+      "level": 3,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "model-context-protocol-basics",
+      "name": "Model Context Protocol (MCP) Basics",
+      "description": "Connecting editors and agents to local file systems, database schemas, and external tools via MCP servers.",
+      "type": "skill",
+      "level": 3,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "prompt-injection-defense-in-code",
+      "name": "Prompt Injection Defense for Code",
+      "description": "Sanitizing untrusted code comments, external repo inputs, and user text fed into coding models.",
+      "type": "skill",
+      "level": 3,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "hallucination-verification-loops",
+      "name": "Hallucination Verification Loops",
+      "description": "Running compiler typechecks and test suites automatically to reject ungrounded API imports.",
+      "type": "workflow",
+      "level": 3,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "contract-first-api-design",
+      "name": "Contract-First API Design with AI",
+      "description": "Iterating on OpenAPI, GraphQL, or gRPC schemas first, then synthesizing clients and handlers.",
+      "type": "workflow",
+      "level": 3,
+      "area": "languages-frameworks",
+      "status": "approved"
+    },
+    {
+      "slug": "property-based-testing-synthesis",
+      "name": "Property-Based Testing Synthesis",
+      "description": "Generating property-based test suites with arbitrary input generators using fast-check or Hypothesis.",
+      "type": "skill",
+      "level": 3,
+      "area": "testing",
+      "status": "approved"
+    },
+    {
+      "slug": "test-mutation-analysis-with-ai",
+      "name": "AI Test Mutation Analysis",
+      "description": "Injecting deliberate bugs into production code to evaluate whether AI-generated tests catch them.",
+      "type": "workflow",
+      "level": 3,
+      "area": "testing",
+      "status": "approved"
+    },
+    {
+      "slug": "reproducible-container-environments",
+      "name": "Reproducible AI-Assisted Containers",
+      "description": "Authoring multi-stage container builds tailored for isolated AI agent sandboxing and execution.",
+      "type": "workflow",
+      "level": 3,
+      "area": "deployment",
+      "status": "approved"
+    },
+    {
+      "slug": "spec-driven-agent-workflows",
+      "name": "Spec-Driven Agent Workflows",
+      "description": "Guiding autonomous agents using formal markdown technical specs and step-by-step checklists.",
+      "type": "workflow",
+      "level": 3,
+      "area": "agents-automation",
+      "status": "approved"
+    },
+    {
+      "slug": "devin-ai",
+      "name": "Devin AI",
+      "description": "Autonomous AI software engineer capable of running shell commands, browsers, and code edits in a sandbox.",
+      "type": "tool",
+      "level": 3,
+      "area": "agents-automation",
+      "status": "draft",
+      "todo_note": "TODO: verify product features, versions and relationships against official documentation before approval"
+    },
+    {
+      "slug": "custom-mcp-server-authoring",
+      "name": "Custom MCP Server Authoring",
+      "description": "Developing domain-specific MCP servers exposing custom database inspection and debugger RPC tools.",
+      "type": "skill",
+      "level": 4,
+      "area": "editors-ides",
+      "status": "approved"
+    },
+    {
+      "slug": "eval-driven-coding-benchmarks",
+      "name": "Eval-Driven Coding Benchmarks",
+      "description": "Building regression benchmarks and golden-file datasets to evaluate accuracy of coding prompts and models.",
+      "type": "skill",
+      "level": 4,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "calibrated-confidence-scoring",
+      "name": "Calibrated Confidence Scoring",
+      "description": "Techniques for measuring model uncertainty before allowing automated code merge or execution.",
+      "type": "skill",
+      "level": 4,
+      "area": "ai-assistants",
+      "status": "approved"
+    },
+    {
+      "slug": "ast-codemod-synthesis",
+      "name": "AST Codemod Synthesis with AI",
+      "description": "Creating robust AST transform scripts (jscodeshift, Babel) with LLM guidance for massive refactors.",
+      "type": "workflow",
+      "level": 4,
+      "area": "languages-frameworks",
+      "status": "approved"
+    },
+    {
+      "slug": "synthetic-security-fuzzing",
+      "name": "Synthetic Security Fuzzing",
+      "description": "Harnessing LLMs to craft malicious payloads and test input parsers for vulnerability identification.",
+      "type": "workflow",
+      "level": 4,
+      "area": "testing",
+      "status": "approved"
+    },
+    {
+      "slug": "canary-deployment-diagnostics",
+      "name": "AI Canary Deployment Diagnostics",
+      "description": "Analyzing real-time APM telemetry and log streams with LLMs during production canary rollouts.",
+      "type": "workflow",
+      "level": 4,
+      "area": "deployment",
+      "status": "approved"
+    },
+    {
+      "slug": "multi-agent-orchestration",
+      "name": "Multi-Agent Orchestration",
+      "description": "Coordinating specialist autonomous agents (architect, coder, reviewer, tester) with shared work boards.",
+      "type": "skill",
+      "level": 4,
+      "area": "agents-automation",
+      "status": "approved"
+    },
+    {
+      "slug": "self-healing-ci-cd-pipelines",
+      "name": "Self-Healing CI/CD Pipelines",
+      "description": "Automated pipelines that inspect failing test logs, draft a fix branch, run checks, and request review.",
+      "type": "workflow",
+      "level": 4,
+      "area": "agents-automation",
+      "status": "approved"
+    }
+  ],
+  "edges": [
+    ["modern-ide-fundamentals", "in-editor-ai-extension-setup"],
+    ["modern-ide-fundamentals", "legacy-ai-autocomplete"],
+    ["prompting-basics", "context-window-hygiene"],
+    ["prompting-basics", "chat-assisted-debugging"],
+    ["polyglot-syntax-fundamentals", "static-snippet-templates"],
+    ["polyglot-syntax-fundamentals", "llm-scaffolding-generators"],
+    ["unit-testing-fundamentals", "test-generation-from-specs"],
+    ["git-and-ci-fundamentals", "git-commit-and-pr-summaries"],
+    ["cli-and-scripting-fundamentals", "single-prompt-scripting"],
+
+    ["in-editor-ai-extension-setup", "context-aware-inline-completion"],
+    ["in-editor-ai-extension-setup", "codebase-indexing-and-rag"],
+    ["in-editor-ai-extension-setup", "cursor-editor"],
+    ["in-editor-ai-extension-setup", "windsurf-editor"],
+    ["legacy-ai-autocomplete", "context-aware-inline-completion"],
+
+    ["context-window-hygiene", "github-copilot"],
+    ["context-window-hygiene", "claude-code"],
+    ["chat-assisted-debugging", "ai-pair-programming-workflow"],
+
+    ["static-snippet-templates", "type-safe-schema-synthesis"],
+    ["llm-scaffolding-generators", "v0-dev"],
+    ["llm-scaffolding-generators", "type-safe-schema-synthesis"],
+
+    ["test-generation-from-specs", "automated-edge-case-testing"],
+    ["test-generation-from-specs", "mock-service-generation"],
+
+    ["git-commit-and-pr-summaries", "ci-ai-review-bots"],
+    ["git-commit-and-pr-summaries", "iac-generation"],
+
+    ["single-prompt-scripting", "headless-task-runners"],
+    ["single-prompt-scripting", "aider-cli"],
+
+    ["context-aware-inline-completion", "multi-file-refactoring-workflows"],
+    ["codebase-indexing-and-rag", "model-context-protocol-basics"],
+    ["cursor-editor", "multi-file-refactoring-workflows"],
+    ["windsurf-editor", "multi-file-refactoring-workflows"],
+
+    ["github-copilot", "prompt-injection-defense-in-code"],
+    ["claude-code", "hallucination-verification-loops"],
+    ["ai-pair-programming-workflow", "hallucination-verification-loops"],
+
+    ["type-safe-schema-synthesis", "contract-first-api-design"],
+    ["v0-dev", "contract-first-api-design"],
+
+    ["automated-edge-case-testing", "property-based-testing-synthesis"],
+    ["mock-service-generation", "test-mutation-analysis-with-ai"],
+
+    ["ci-ai-review-bots", "reproducible-container-environments"],
+    ["iac-generation", "reproducible-container-environments"],
+
+    ["headless-task-runners", "spec-driven-agent-workflows"],
+    ["aider-cli", "spec-driven-agent-workflows"],
+    ["aider-cli", "devin-ai"],
+
+    ["model-context-protocol-basics", "custom-mcp-server-authoring"],
+    ["multi-file-refactoring-workflows", "ast-codemod-synthesis"],
+
+    ["hallucination-verification-loops", "eval-driven-coding-benchmarks"],
+    ["prompt-injection-defense-in-code", "calibrated-confidence-scoring"],
+
+    ["contract-first-api-design", "ast-codemod-synthesis"],
+
+    ["property-based-testing-synthesis", "synthetic-security-fuzzing"],
+    ["test-mutation-analysis-with-ai", "synthetic-security-fuzzing"],
+
+    ["reproducible-container-environments", "canary-deployment-diagnostics"],
+
+    ["spec-driven-agent-workflows", "multi-agent-orchestration"],
+    ["spec-driven-agent-workflows", "self-healing-ci-cd-pipelines"],
+    ["devin-ai", "multi-agent-orchestration"]
+  ],
+  "supersedes": [
+    ["legacy-ai-autocomplete", "context-aware-inline-completion", "Whole-codebase context-aware inline completions supersede simple single-line autocompletion."],
+    ["static-snippet-templates", "llm-scaffolding-generators", "Generative LLM scaffolding supersedes static copy-paste snippet templates."],
+    ["single-prompt-scripting", "spec-driven-agent-workflows", "Iterative spec-driven agent execution supersedes one-shot single prompt scripting."]
+  ]
+}
