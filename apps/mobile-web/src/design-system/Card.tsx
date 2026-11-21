@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, type ViewStyle, type ViewProps } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle, type ViewProps } from 'react-native';
 import { useTheme } from './ThemeContext';
 
 export interface CardProps extends ViewProps {
   children: React.ReactNode;
   variant?: 'elevated' | 'outlined' | 'flat';
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const Card: React.FC<CardProps> = ({

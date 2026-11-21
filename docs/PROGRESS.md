@@ -822,16 +822,71 @@ curl -X POST http://127.0.0.1:54321/functions/v1/process-news-item \
 
 ## Next
 
-### Prompt 10: Feed Tab UI and News Item Presentation
+### Prompt 10: News Feed Tab & Presentation
 
-- Ingestion pipeline (Edge Function or scheduled worker):
-  - Ingestion from RSS/GitHub/newsletter sources into `news_sources` and `news_items`.
-  - Deduplication by URL and `content_hash`.
-  - Fast-tier LLM summarizer (`/packages/llm`): 3 actionable bullets, impact score 1-10, tags.
-  - Mapping to canonical nodes.
-- Feed tab UI in `/apps/mobile-web/app/(app)/index.tsx`:
-  - News cards with 3 bullets, impact score badge, source link, and prominent Red Button.
-  - Sponsored card slot (structurally separated).
+#### 1. News Feed UI Architecture (`apps/mobile-web/app/(app)/index.tsx`)
+- **Published Feed Query (`apps/mobile-web/src/lib/useNewsFeed.ts`)**:
+  - TanStack `useInfiniteQuery` fetching `news_items` with `status = 'published'`, ordered descending by `published_at`.
+  - Infinite scroll pagination with `getNextPageParam` (15 items per page) and pull-to-refresh integration.
+  - Supabase Realtime channel (`realtime_news_feed`) listening on `INSERT` events on table `news_items` to insert new published items live at the top of the feed cache without requiring a full page refresh.
+  - Queries active `sponsored_placements` and precomputed `user_verdicts` for the current user.
+  - Automatically interleaves 1 sponsored card per 10 news items into the unified feed item list.
+
+#### 2. Card Components & Invariants
+- **News Card (`apps/mobile-web/src/components/NewsCard.tsx`)**:
+  - Displays article title, source name, and relative timestamp (e.g. `2h ago`, `3d ago`).
+  - **PRD Invariant - Exactly 3 Bullets**: Enforces and renders exactly 3 distinct bullet points with index keys (`news-bullet-0`, `news-bullet-1`, `news-bullet-2`).
+  - **Impact Score Badge & Scale Modal**: Prominently displays score `1-10` with color coding and icon. Tapping the badge opens `ImpactScaleModal` explaining the PRD 9.1 rubric (Routine patch through Breakthrough tool).
+  - **Roadmap Match Hint**: Displays a subtle "Matches your roadmap" badge when a precomputed verdict exists for the item.
+  - **Prominent Red Button**: Visible, high-contrast action button (minimum 44px touch target) that opens the Red Button verdict preview modal.
+  - **External Link**: Link to the original article with external link icon, opening securely via `Linking.openURL`.
+- **Structural Separation Invariant (`apps/mobile-web/src/components/SponsoredCard.tsx`)**:
+  - Strict data isolation: `SponsoredCardProps` only accepts `{ id, title, body, cta_url, sponsor_name, onPressCta }`.
+  - Verified by unit tests to never receive or expose news, verdict, or roadmap user data.
+  - Prominently labeled with a `SPONSORED` badge and sponsor attribution.
+- **Loading & Skeleton States (`apps/mobile-web/src/components/NewsCardSkeleton.tsx`)**:
+  - Smooth animated opacity pulse for placeholder cards while data is loading.
+  - Empty state with clear messaging when no news items exist for the user's domain.
+  - Error state with an immediate "Try Again" retry button.
+
+#### 3. Analytics & Viewability Events
+- **Viewability Tracking**: Integrates `onViewableItemsChanged` on `FlatList` with 250ms debounce.
+- Emits analytics events:
+  - `news_card_viewed`: tracked once per card appearance with `news_id`, `domain_id`, and `impact_score`.
+  - `sponsored_card_viewed`: tracked once per sponsored card appearance with `placement_id` and `sponsor_name`.
+  - `sponsored_card_clicked`: tracked on CTA button press with `placement_id` and `cta_url`.
+
+#### 4. Verification & Test Suite
+- **140 unit & integration tests passing across 13 test suites (`pnpm test`)**:
+  - `apps/mobile-web/src/components/NewsCard.test.tsx` (6 tests):
+    - Renders article title, source attribution, and relative timestamp.
+    - Strictly enforces PRD invariant of exactly 3 bullet points.
+    - Verifies prominent Red Button presence and touch target.
+    - Conditional rendering of "Matches your roadmap" badge.
+    - Relative time formatting utility (`m`, `h`, `d`).
+    - Impact score color tiering across low, medium, and high scores.
+  - `apps/mobile-web/src/components/SponsoredCard.test.tsx` (2 tests):
+    - Renders SPONSORED badge, sponsor attribution, title, description, and CTA.
+    - Structural separation invariant verification: asserts props contain no news, verdict, or roadmap keys.
+  - `e2e/feed.spec.ts`:
+    - Full Playwright E2E test verifying feed rendering, 3-bullet presentation, impact scale modal open/close, Red Button modal preview, and interleaved card rendering.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+---
+
+## Next
+
+### Prompt 11: Red Button Verdict Engine & Interactive Previews
+
+- Supabase Edge Function `compute-verdict` (server-side, cached per user+item+roadmap version):
+  - Fast-tier LLM verdict prompt (`@repo/llm`).
+  - Classifies news against user's active roadmap: Shield (irrelevant/no-op), Injection (new skill to learn), Override (replaces existing tool).
+  - Returns rationale, affected nodes, and proposed delta actions.
+- Interactive verdict preview modal:
+  - Verdict breakdown with visual language (Shield = blue, Injection = green, Override = amber, icon + label).
+  - Action buttons: "Accept & Update Roadmap" or "Dismiss".
+- Optimistic update to `user_nodes` and `user_verdicts`.
+
 
 
 

@@ -1,5 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const rnwPath = require.resolve('react-native-web', {
+  paths: [path.resolve(import.meta.dirname, 'apps/mobile-web')],
+});
 
 export default defineConfig({
   define: {
@@ -9,12 +15,12 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: [
-      'packages/**/src/**/*.test.ts',
-      'apps/**/src/**/*.test.ts',
-      'supabase/functions/**/*.test.ts',
+      'packages/**/src/**/*.test.{ts,tsx}',
+      'apps/**/src/**/*.test.{ts,tsx}',
+      'supabase/functions/**/*.test.{ts,tsx}',
     ],
     alias: {
-      'react-native': 'react-native-web',
+      'react-native': rnwPath,
       '@repo/graph': path.resolve(import.meta.dirname, './packages/graph/src'),
       '@repo/schemas': path.resolve(import.meta.dirname, './packages/schemas/src'),
       '@repo/llm': path.resolve(import.meta.dirname, './packages/llm/src'),
