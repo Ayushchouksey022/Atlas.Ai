@@ -5,7 +5,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['packages/**/src/**/*.test.ts', 'apps/**/src/**/*.test.ts'],
+    include: [
+      'packages/**/src/**/*.test.ts',
+      'apps/**/src/**/*.test.ts',
+      'supabase/functions/**/*.test.ts',
+    ],
     alias: {
       '@repo/graph': path.resolve(import.meta.dirname, './packages/graph/src'),
       '@repo/schemas': path.resolve(import.meta.dirname, './packages/schemas/src'),

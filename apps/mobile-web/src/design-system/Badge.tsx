@@ -8,6 +8,7 @@ export interface BadgeProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   icon?: React.ReactNode;
+  testID?: string;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -16,6 +17,7 @@ export const Badge: React.FC<BadgeProps> = ({
   style,
   textStyle,
   icon,
+  testID,
 }) => {
   const { theme, radii, spacing } = useTheme();
 
@@ -41,6 +43,7 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <View
+      testID={testID}
       style={[
         styles.badge,
         {

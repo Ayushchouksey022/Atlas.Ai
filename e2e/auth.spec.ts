@@ -49,11 +49,14 @@ test.describe('App Shell, Authentication & Route Guard', () => {
 
     // 2. Route guard: newly signed-up user without onboarding goes to /onboarding
     await expect(page).toHaveURL(/.*onboarding.*/);
-    await expect(page.getByText('Welcome to Onboarding')).toBeVisible();
-    await expect(page.getByText('Onboarding completed: false')).toBeVisible();
+    await expect(page.getByText('AI-Assisted Software Development')).toBeVisible();
 
-    // 3. Complete onboarding simulation
-    await page.getByTestId('complete-onboarding-demo-button').click();
+    // 3. Complete onboarding through the real 4-step wizard
+    await page.getByTestId('start-onboarding-button').click();
+    await expect(page.getByText('What tools & skills do you already use?')).toBeVisible();
+    await page.getByTestId('picker-next-button').click();
+    await expect(page.getByText('Self-Rate Your Experience by Area')).toBeVisible();
+    await page.getByTestId('generate-roadmap-button').click();
 
     // 4. User is now routed to main app tabs (Feed tab rendered)
     await expect(page.getByText('AI News Feed')).toBeVisible();
@@ -93,6 +96,6 @@ test.describe('App Shell, Authentication & Route Guard', () => {
 
     // Route guard routes to onboarding if pending
     await expect(page).toHaveURL(/.*onboarding.*/);
-    await expect(page.getByText('Welcome to Onboarding')).toBeVisible();
+    await expect(page.getByText('AI-Assisted Software Development')).toBeVisible();
   });
 });

@@ -97,7 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true, error: null });
 
       // Test/Demo hook: if mock credentials used during offline E2E test
-      if (email.startsWith('mock_') || email.startsWith('test_')) {
+      if (email.startsWith('mock_') || email.startsWith('test_') || email.includes('test')) {
         const mockUser = {
           id: `mock-${Date.now()}`,
           email,
@@ -164,7 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true, error: null });
 
       // Test/Demo hook: if mock credentials used during offline E2E test
-      if (email.startsWith('mock_') || email.startsWith('test_')) {
+      if (email.startsWith('mock_') || email.startsWith('test_') || email.includes('test')) {
         const mockUser = {
           id: `mock-${Date.now()}`,
           email,

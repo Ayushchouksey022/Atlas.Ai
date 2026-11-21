@@ -51,6 +51,6 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`[serve-web] Server running at http://127.0.0.1:${PORT}/`);
 });

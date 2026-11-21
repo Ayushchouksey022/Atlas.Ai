@@ -358,15 +358,112 @@ pnpm typecheck
 
 ---
 
+## Completed
+
+### Prompt 5: Onboarding flow and baseline roadmap creation
+
+**PRD Reference:** Section 8.1, Section 11.1, Section 13, Section 14
+
+#### 1. Onboarding UI Screens (`/apps/mobile-web/app/onboarding.tsx`)
+Completed multi-step wizard designed for completion in under 5 minutes:
+1. **Goal Card (Step 1)**:
+   - Single launch domain: "AI-Assisted Software Development".
+   - Value propositions: Prerequisite-aware DAG, AI hype shield, continuous Injections & Overrides.
+   - Triggers `onboarding_started` analytics event upon proceeding.
+2. **Structured Picker (Step 2)**:
+   - Loads all 48 approved canonical nodes grouped across 6 areas (`editors-ides`, `ai-assistants`, `languages-frameworks`, `testing`, `deployment`, `agents-automation`).
+   - Live search filter across node titles, slugs, and descriptions.
+   - Area quick-filter pills for rapid navigation.
+   - Live counter badge (`X Selected`).
+   - Per-area "Select All" and "Clear" actions.
+   - Node cards displaying type badges (`skill`, `tool`, `workflow`), difficulty level, and selection checkmark.
+   - Direct option to "Skip (Start from scratch)" for zero-selection onboarding.
+3. **Skill Level Selection per Area (Step 3)**:
+   - 3-tier segmented control (`Beginner` | `Working` | `Expert`) for all 6 areas.
+   - Explanatory guidance for how experience levels calibrate prerequisite satisfaction:
+     - `Beginner`: Starts with foundational level-0 nodes.
+     - `Working`: Direct prerequisites assumed known.
+     - `Expert`: All deep ancestral prerequisites marked known.
+4. **"Generating Your Roadmap" Screen (Step 4)**:
+   - Visual synthesis state with step-by-step progress checklist.
+   - Calls server-side Edge Function / roadmap service.
+   - Error banner with retry mechanism in case of network disruptions.
+   - On completion: calculates elapsed time, fires `onboarding_completed` (with `duration_seconds`), updates profile state, and routes to main app tabs.
+
+#### 2. Onboarding State Store (`/apps/mobile-web/src/lib/onboardingStore.ts`)
+- Zustand store managing step navigation, node selection sets, levels per area, search query, and timestamps.
+- **Midway Abandon & Resume**: Automatically serializes progress to `sessionStorage` (`__atlas_onboarding_state__`) on every change. If a user drops off and reopens `/onboarding` or reloads the browser, progress is automatically restored without loss of selections.
+- Fully tested for edge cases: empty selections (user selects nothing), full selection, area clear/select-all, and page reload.
+
+#### 3. Supabase Edge Function (`/supabase/functions/create-baseline-roadmap/`)
+- Server-side endpoint `handleCreateBaselineRoadmap` enforcing server-side authority (cannot be bypassed by clients).
+- Verifies Supabase JWT via `auth.getUser()`.
+- Fetches domain's approved canonical nodes and edges.
+- Calls `@repo/graph` `generateBaselineRoadmap` pure algorithm.
+- Clearly marked hook for LLM personalization:
+  ```ts
+  // ---------------------------------------------------------------------------
+  // HOOK: LLM per-node personalization annotations (PRD Section 8.1 step 5)
+  // Optional LLM step (cheap tier): write a one-line "why this matters for you"
+  // annotation per node. Failure must not block roadmap creation.
+  // NOTE: DO NOT implement the LLM call yet — specification for Prompt 5.
+  // ---------------------------------------------------------------------------
+  ```
+- Calls `save_baseline_roadmap` database RPC.
+
+#### 4. Transactional Database RPC (`/supabase/migrations/20261122000001_baseline_roadmap_rpc.sql`)
+- Function `public.save_baseline_roadmap(p_user_id, p_domain_id, p_experience, p_user_nodes)`:
+  - Security check: verifies caller is owner or editor/service role.
+  - Atomically upserts all `user_nodes` in ONE transaction.
+  - Idempotent: `ON CONFLICT (user_id, node_id) DO UPDATE` ensures re-running roadmap creation updates existing nodes without creating duplicate rows.
+  - Updates `profiles.experience = p_experience` and `profiles.onboarding_completed = true`.
+  - Atomic rollback: if any constraint fails or an error is raised, the entire transaction rolls back cleanly, leaving zero partial data.
+
+#### 5. Analytics Tracking (`/apps/mobile-web/src/lib/events.ts`)
+- Helper function `trackEvent(name, properties)`:
+  - Inserts into `public.events` table in Supabase.
+  - Events tracked:
+    - `onboarding_started`: `{ domain, timestamp, user_id }`
+    - `onboarding_completed`: `{ domain, duration_seconds, selected_nodes_count, levels }`
+  - Fails gracefully without disrupting user interaction when offline.
+
+#### 6. Verification & Test Suite
+- **Vitest Unit & Integration Tests (96 tests passing)**:
+  - `apps/mobile-web/src/lib/onboardingStore.test.ts` (8 tests): picker state logic, toggle, multi-select, area select/clear, select-all, level updating, and midway abandon/resume.
+  - `supabase/functions/create-baseline-roadmap/create-baseline-roadmap.test.ts` (7 tests): PRD 8.1 baseline generation, 0 selected nodes edge case, all selected nodes edge case, transactional idempotency (exact same row count on rerun), atomic rollback simulation (zero partial state on forced failure), CORS OPTIONS preflight, and 401 on missing auth.
+  - Previous packages: `@repo/graph` (67 tests), `@repo/schemas` (13 tests), `@repo/llm` (1 test).
+- **Playwright E2E Tests (7 tests passing)**:
+  - Auth route guards, signup, signin, and signout flows.
+  - Full Onboarding flow (Sign Up -> Goal Card -> Search & Select in Picker -> Select Levels -> Generate Roadmap -> App Feed).
+  - Edge case: User selects nothing (starts from scratch).
+  - Edge case: User abandons midway and returns (page reload resumes at the exact step with selections intact).
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+#### How to Run
+
+```bash
+# Run unit & integration tests
+pnpm test
+
+# Run TypeScript type check and linter
+pnpm typecheck && pnpm lint
+
+# Run Playwright E2E test suite
+pnpm web:export
+pnpm test:e2e
+```
+
+---
+
 ## Next
 
-### Prompt 5: Onboarding and baseline roadmap
+### Prompt 6: Interactive Roadmap DAG View & State Mutations
 
-- Onboarding multi-step flow (target <= 5 min):
-  - Goal card (domain: AI-assisted software development)
-  - Structured picker grouped by area (`editors-ides`, `ai-assistants`, `languages-frameworks`, `testing`, `deployment`, `agents-automation`)
-  - Level selection per area (Beginner / Working / Expert)
-  - Generation screen
-- Supabase Edge Function `create-baseline-roadmap` (server-side, single transaction using `@repo/graph` `generateBaselineRoadmap`).
-- Event tracking: `onboarding_started` and `onboarding_completed`.
-- Integration and Playwright E2E tests for onboarding.
+- Implement interactive Roadmap tab in `/apps/mobile-web/app/(app)/roadmap.tsx`:
+  - Visual DAG rendering of user roadmap nodes and edges.
+  - Node visual states (PRD Section 11.3): locked, available, in progress, completed, archived (muted), fast-track badge.
+  - Status transitions (`todo` -> `in_progress` -> `completed` -> `archived`).
+  - Legacy view toggle to inspect archived nodes.
+  - Node detail modal / sheet.
+- Real-time sync via Supabase Realtime subscriptions on `user_nodes`.
+
