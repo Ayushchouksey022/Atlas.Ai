@@ -1,0 +1,18 @@
+[
+  {
+    "id": 101,
+    "tag_name": "v0.42.0",
+    "name": "Cursor 0.42: Multi-file Agentic Edits",
+    "html_url": "https://github.com/getcursor/cursor/releases/tag/v0.42.0",
+    "published_at": "2026-11-21T18:00:00Z",
+    "body": "## Cursor 0.42.0\n\n- Introducing background codebase indexing\n- Instant multi-file diff previews\n- Memory leak optimizations for large monorepos"
+  },
+  {
+    "id": 102,
+    "tag_name": "v0.41.0",
+    "name": "Cursor 0.41: Fast Inline Autocomplete",
+    "html_url": "https://github.com/getcursor/cursor/releases/tag/v0.41.0",
+    "published_at": "2026-11-15T14:00:00Z",
+    "body": "## Cursor 0.41.0\n\n- Low latency inline completions\n- Improved vim mode integration"
+  }
+]

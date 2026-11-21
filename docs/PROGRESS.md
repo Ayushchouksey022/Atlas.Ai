@@ -721,9 +721,108 @@ pnpm llm:smoke
 
 ---
 
+### Prompt 9: Server-Side News Pipeline (`ingest-news` & `process-news-item`)
+
+#### 1. Database Schema Enhancements (`supabase/migrations/20261122000004_news_pipeline_schema.sql`)
+- **Nullable Ingestion State**: Relaxed `NOT NULL` constraints on `news_items.bullets` and `news_items.impact_score` for raw unparsed items (`status = 'ingested'`).
+- **Strict Publication Invariant**: Re-added conditional SQL check constraints:
+  - `news_items_published_bullets_check`: When `status in ('processed', 'published')`, `bullets` MUST be a JSON array of exactly 3 non-empty strings.
+  - `news_items_published_impact_score_check`: When `status in ('processed', 'published')`, `impact_score` MUST be an integer between 1 and 10.
+- **Editorial Queue & Error Record**: Added `error_record text` to `news_items` to record LLM schema failures, preventing invalid outputs from reaching the user feed.
+- **Seeded News Sources**: Seeded 6 DRAFT/inactive placeholder rows in `public.news_sources` for `ai-assisted-software-development` (`active = false`).
+- **pg_cron Scheduled Trigger**: Configured recurring cron trigger executing every 20 minutes (`*/20 * * * *`) invoking `/functions/v1/ingest-news` via `net.http_post`.
+
+#### 2. Ingestion Engine (`supabase/functions/ingest-news/`)
+- **Modular Parsers (`supabase/functions/ingest-news/parsers.ts`)**:
+  - `parseRssOrAtom`: Universal parser handling RSS 2.0 (`<item>`) and Atom 1.0 (`<entry>`), extracting title, canonical link, published date, and stripped HTML text.
+  - `parseGitHubReleases`: Dual-mode parser supporting GitHub Releases REST API JSON arrays and GitHub Atom feeds (`releases.atom`).
+  - Extension points for `api` and `newsletter` webhook ingestion.
+- **Normalization & Deduplication (`supabase/functions/ingest-news/normalize.ts`)**:
+  - Computes deterministic SHA-256 `content_hash` over canonical URL, title, and raw text.
+  - Batched deduplication query checking existing `url` and `content_hash` before insertion.
+  - Inserts new entries into `news_items` with status `'ingested'`.
+- **Per-Source Error Isolation & Resiliency**:
+  - Each source fetch uses `AbortSignal.timeout(8000)`.
+  - Wrapped in per-source try-catch; a broken or offline feed reports an error in the response payload but never aborts ingestion of remaining healthy sources.
+
+#### 3. Processing Engine (`supabase/functions/process-news-item/`)
+- **LLM Summary & Invariant Enforcement**:
+  - Calls `@repo/llm` `newsSummaryPrompt` (fast tier, `gpt-4o-mini`).
+  - Enforces exactly 3 non-empty bullets and `impact_score` between 1 and 10.
+  - If output fails schema validation, item remains `'ingested'` with error recorded in `error_record` and is surfaced to the editor queue. Invalid items never reach `'published'`.
+- **Two-Stage Node Mapping (`supabase/functions/process-news-item/mapping.ts`)**:
+  - *Stage 1 (Candidate Retrieval)*: Ranks approved canonical nodes using tokenized keyword and area tag overlap against news title, bullets, tags, and excerpt.
+  - *Stage 2 (LLM Pick)*: Runs `nodeMappingPrompt` (`@repo/llm`, fast tier) with top candidate nodes, mapping matched slugs to canonical node UUIDs stored in `mapped_node_ids`.
+- **Editorial Queue for Novel Tools (PRD 10.1 step 7)**:
+  - If `proposed_new_tool` mentions a tool not present in the canonical graph, runs `graphChangeDraftPrompt` (`@repo/llm`, strong tier) to draft proposed node metadata, prerequisite edges, and rationale.
+  - Inserts a pending record into `public.proposed_graph_changes` (`status = 'pending'`, `change_type = 'add_node'`).
+- **Publication**:
+  - Updates `news_items` with validated bullets, score, rationale, tags, and mapped nodes, setting `status = 'published'`.
+
+#### 4. Verification & Test Suite (`supabase/functions/news-pipeline.test.ts`)
+- **132 unit & integration tests passing across 11 test suites (`pnpm test`)**:
+  - `supabase/functions/news-pipeline.test.ts` (9 tests):
+    - RSS 2.0 XML parsing with CDATA and HTML entity unescaping.
+    - GitHub Releases JSON parsing with release tag and body normalization.
+    - End-to-end ingestion storing raw items with status `'ingested'`.
+    - Idempotency test: re-running ingestion with identical feeds inserts 0 duplicate items and skips 4 duplicates.
+    - Resiliency test: broken/offline feed records error while healthy feed is cleanly ingested.
+    - Processing test: validates 3 bullets, score 1-10, node mapping, and status transition to `'published'`.
+    - Invariant test: malformed LLM outputs stay `'ingested'` with error record and never publish.
+    - Graph change test: novel tool creates `proposed_graph_changes` row with `change_type: 'add_node'`.
+    - Node mapping candidate retrieval keyword ranking.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+---
+
+### How to Add a News Source
+
+To add a new RSS feed, GitHub releases feed, or API source to the pipeline:
+
+```sql
+-- Connect via Supabase SQL Editor or psql
+insert into public.news_sources (domain_id, name, url, kind, active)
+values (
+  (select id from public.domains where slug = 'ai-assisted-software-development' limit 1),
+  'Cursor Changelog',
+  'https://api.github.com/repos/getcursor/cursor/releases',
+  'github_releases',
+  true
+);
+```
+
+Supported `kind` values:
+- `'rss'`: Standard RSS 2.0 or Atom feeds.
+- `'github_releases'`: GitHub Releases REST API or GitHub release Atom feeds.
+- `'api'`: Custom JSON API returning article/item objects.
+- `'newsletter'`: Inbound newsletter digest / markdown webhooks.
+
+---
+
+### How to Run Locally
+
+```bash
+# 1. Run all unit & integration tests (uses recorded fixtures and MockProvider)
+pnpm test
+
+# 2. Trigger news ingestion manually via HTTP
+curl -X POST http://127.0.0.1:54321/functions/v1/ingest-news \
+  -H "Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"force_all": false}'
+
+# 3. Trigger processing on ingested items
+curl -X POST http://127.0.0.1:54321/functions/v1/process-news-item \
+  -H "Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"batch_limit": 10}'
+```
+
+---
+
 ## Next
 
-### Prompt 9: News Ingestion Pipeline and Feed Tab
+### Prompt 10: Feed Tab UI and News Item Presentation
 
 - Ingestion pipeline (Edge Function or scheduled worker):
   - Ingestion from RSS/GitHub/newsletter sources into `news_sources` and `news_items`.

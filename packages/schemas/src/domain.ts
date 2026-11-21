@@ -247,3 +247,58 @@ export const PersonalizationAnnotationOutputSchema = z.object({
 });
 export type PersonalizationAnnotationOutput = z.infer<typeof PersonalizationAnnotationOutputSchema>;
 
+// ---------------------------------------------------------------------------
+// News Source & News Item Domain Schemas — PRD Section 7 & 10.1
+// ---------------------------------------------------------------------------
+
+export const NewsSourceKindSchema = z.enum([
+  'rss',
+  'github_releases',
+  'api',
+  'newsletter',
+]);
+export type NewsSourceKind = z.infer<typeof NewsSourceKindSchema>;
+
+export const NewsSourceSchema = z.object({
+  id: z.string().uuid(),
+  domain_id: z.string().uuid(),
+  name: z.string().min(1),
+  url: z.string().url(),
+  kind: NewsSourceKindSchema,
+  active: z.boolean().default(true),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+export type NewsSource = z.infer<typeof NewsSourceSchema>;
+
+export const NewsItemStatusSchema = z.enum([
+  'ingested',
+  'processed',
+  'published',
+  'rejected',
+]);
+export type NewsItemStatus = z.infer<typeof NewsItemStatusSchema>;
+
+export const NewsItemSchema = z.object({
+  id: z.string().uuid(),
+  domain_id: z.string().uuid(),
+  source_id: z.string().uuid().nullable().optional(),
+  url: z.string().url(),
+  title: z.string().min(1),
+  published_at: z.string().nullable().optional(),
+  raw_text: z.string().nullable().optional(),
+  content_hash: z.string().min(1),
+  bullets: z.tuple([z.string().min(1), z.string().min(1), z.string().min(1)]).nullable().optional(),
+  impact_score: z.number().int().min(1).max(10).nullable().optional(),
+  impact_rationale: z.string().nullable().optional(),
+  tags: z.array(z.string()).default([]),
+  mapped_node_ids: z.array(z.string().uuid()).default([]),
+  proposed_new_tool: ProposedNewToolSchema.nullable().optional(),
+  status: NewsItemStatusSchema.default('ingested'),
+  error_record: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+export type NewsItem = z.infer<typeof NewsItemSchema>;
+
+

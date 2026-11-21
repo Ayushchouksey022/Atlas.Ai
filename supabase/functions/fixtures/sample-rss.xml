@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>AI Developer News Feed</title>
+    <link>https://news.example.com/feed.xml</link>
+    <description>Latest news in AI-assisted software engineering</description>
+    <item>
+      <title>Anthropic Introduces Claude 3.5 Sonnet</title>
+      <link>https://news.example.com/posts/claude-3-5-sonnet</link>
+      <pubDate>Thu, 20 Nov 2026 12:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Anthropic announced Claude 3.5 Sonnet, setting new industry benchmarks for coding and tool use. The model is 2x faster than Claude 3 Opus and excels at complex codebase refactoring.</p>]]></description>
+    </item>
+    <item>
+      <title>VS Code Releases Native AI Agent Workspace Mode</title>
+      <link>https://news.example.com/posts/vscode-agent-mode</link>
+      <pubDate>Fri, 21 Nov 2026 15:30:00 GMT</pubDate>
+      <description><![CDATA[<p>VS Code 1.95 introduces an integrated terminal agent that interacts directly with git repositories, runs lint checks, and automatically fixes compiler errors.</p>]]></description>
+    </item>
+  </channel>
+</rss>
