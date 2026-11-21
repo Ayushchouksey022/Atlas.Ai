@@ -2,14 +2,21 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { useTheme } from '../../src/design-system';
+import { useAuth } from '../../src/lib/AuthProvider';
+import { useRealtimeSync } from '../../src/lib/realtimeSync';
+import { OfflineBanner } from '../../src/components/OfflineBanner';
 
 export default function AppTabsLayout() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
+  const { isOnline } = useRealtimeSync(user?.id);
 
   return (
-    <Tabs
-      screenOptions={{
+    <>
+      <OfflineBanner isOnline={isOnline} />
+      <Tabs
+        screenOptions={{
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: {
@@ -62,6 +69,7 @@ export default function AppTabsLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }
 

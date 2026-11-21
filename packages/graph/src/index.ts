@@ -593,3 +593,126 @@ export function applyOverride(
     user_nodes: [...updatedUserNodes, newUserNode],
   });
 }
+
+// ---------------------------------------------------------------------------
+// 8. mergeRoadmapWithBaseline
+// ---------------------------------------------------------------------------
+
+/**
+ * PRD Section 11.5 & Prompt 7:
+ * Re-runs baseline generation with updated known stack and levels WITHOUT losing
+ * completed, in-progress, or archived state.
+ *
+ * Invariant: Completed or archived nodes are NEVER deleted or reverted to todo.
+ * Pure and immutable (inputs are never mutated).
+ */
+export function mergeRoadmapWithBaseline(
+  currentRoadmap: Readonly<Roadmap>,
+  selectedKnownNodeIds: readonly string[],
+  levelsByArea: Readonly<LevelsByArea>,
+  canonicalGraphOverride?: Readonly<CanonicalGraph>,
+): GenerateBaselineResult {
+  const canonicalGraph: CanonicalGraph = canonicalGraphOverride ?? {
+    domain_id: currentRoadmap.domain_id,
+    nodes: currentRoadmap.nodes,
+    edges: currentRoadmap.edges,
+  };
+
+  const baselineResult = generateBaselineRoadmap(
+    canonicalGraph,
+    selectedKnownNodeIds,
+    levelsByArea,
+    currentRoadmap.user_id,
+  );
+
+  if (!baselineResult.ok) {
+    return baselineResult;
+  }
+
+  const baselineRoadmap = baselineResult.value;
+
+  // Existing user_nodes map: nodeId -> UserNode
+  const existingByNodeId = new Map<string, UserNode>();
+  for (const un of currentRoadmap.user_nodes) {
+    existingByNodeId.set(un.node_id, un);
+  }
+
+  // Preserve completed, in_progress, and archived nodes
+  const mergedUserNodes: UserNode[] = [];
+  const processedNodeIds = new Set<string>();
+
+  for (const baseUn of baselineRoadmap.user_nodes) {
+    processedNodeIds.add(baseUn.node_id);
+    const existing = existingByNodeId.get(baseUn.node_id);
+
+    if (
+      existing &&
+      (existing.status === 'completed' ||
+        existing.status === 'archived' ||
+        existing.status === 'in_progress')
+    ) {
+      // Retain existing progress & completion timestamp
+      mergedUserNodes.push({
+        ...baseUn,
+        id: existing.id,
+        status: existing.status,
+        completed_at: existing.completed_at,
+        origin: existing.origin,
+        fast_track: existing.fast_track,
+        replaced_node_id: existing.replaced_node_id,
+        version: existing.version + 1,
+      });
+    } else {
+      // Newly known or updated todo
+      mergedUserNodes.push({
+        ...baseUn,
+        id: existing ? existing.id : baseUn.id,
+        version: existing ? existing.version + 1 : baseUn.version,
+      });
+    }
+  }
+
+  // Any completed, in_progress, or archived nodes that were not in baselineRoadmap must be preserved!
+  const additionalNodes: CanonicalNode[] = [];
+  const existingNodesById = new Map<string, CanonicalNode>();
+  for (const n of currentRoadmap.nodes) {
+    existingNodesById.set(n.id, n);
+  }
+
+  const baselineNodeIds = new Set(baselineRoadmap.nodes.map((n) => n.id));
+
+  for (const un of currentRoadmap.user_nodes) {
+    if (
+      !processedNodeIds.has(un.node_id) &&
+      (un.status === 'completed' || un.status === 'archived' || un.status === 'in_progress')
+    ) {
+      mergedUserNodes.push({
+        ...un,
+        version: un.version + 1,
+      });
+      processedNodeIds.add(un.node_id);
+
+      if (!baselineNodeIds.has(un.node_id)) {
+        const canonical = existingNodesById.get(un.node_id);
+        if (canonical) {
+          additionalNodes.push(canonical);
+          baselineNodeIds.add(un.node_id);
+        }
+      }
+    }
+  }
+
+  // Also include any edges among the preserved nodes
+  const mergedNodeIds = new Set(mergedUserNodes.map((un) => un.node_id));
+  const mergedEdges = canonicalGraph.edges.filter(
+    (e) => mergedNodeIds.has(e.from_node) && mergedNodeIds.has(e.to_node),
+  );
+
+  return ok({
+    user_id: currentRoadmap.user_id,
+    domain_id: currentRoadmap.domain_id,
+    nodes: [...baselineRoadmap.nodes, ...additionalNodes],
+    edges: mergedEdges,
+    user_nodes: mergedUserNodes,
+  });
+}

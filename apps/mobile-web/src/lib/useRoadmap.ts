@@ -10,6 +10,7 @@ import type {
 } from '@repo/schemas';
 import type { EnrichedRoadmapNode, NodeVisualStatus } from './graphLayout';
 import { computeNodeVisualStatus } from './roadmapRules';
+import { broadcastSyncEvent } from './realtimeSync';
 
 export { computeNodeVisualStatus, canTransitionToStatus } from './roadmapRules';
 
@@ -61,10 +62,12 @@ export async function fetchUserRoadmap(userId: string): Promise<RoadmapQueryResu
     // ignore offline
   }
 
-  // 2. Check mock session storage if user_nodes not in DB
-  if (userNodesData.length === 0 && typeof window !== 'undefined' && window.sessionStorage) {
+  // 2. Check mock storage if user_nodes not in DB
+  if (userNodesData.length === 0 && typeof window !== 'undefined') {
     try {
-      const raw = window.sessionStorage.getItem('__atlas_user_nodes__');
+      const raw =
+        window.sessionStorage?.getItem('__atlas_user_nodes__') ||
+        window.localStorage?.getItem('__atlas_user_nodes__');
       if (raw) {
         userNodesData = JSON.parse(raw);
       }
@@ -175,9 +178,11 @@ export function useRoadmap(userId: string) {
     mutationFn: async ({
       nodeId,
       newStatus,
+      expectedVersion,
     }: {
       nodeId: string;
       newStatus: string;
+      expectedVersion?: number;
     }) => {
       // 1. Haptic feedback
       if (Platform.OS !== 'web') {
@@ -195,32 +200,65 @@ export function useRoadmap(userId: string) {
       const completedAt =
         newStatus === 'completed' ? new Date().toISOString() : null;
 
-      // 2. Persist to Supabase
+      // Determine version to check
+      let currentVersion = expectedVersion;
+      if (currentVersion === undefined) {
+        const currentData = queryClient.getQueryData<RoadmapQueryResult>(queryKey);
+        const currentTarget = currentData?.nodes.find((n) => n.id === nodeId);
+        currentVersion = currentTarget?.version || 1;
+      }
+
+      const nextVersion = currentVersion + 1;
+      let conflictDetected = false;
+
+      // 2. Persist to Supabase with optimistic concurrency version check (PRD Section 12)
       try {
-        await supabase
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 600);
+
+        const { data, error } = await supabase
           .from('user_nodes')
           .update({
             status: newStatus as any,
             completed_at: completedAt,
+            version: nextVersion,
           })
           .eq('user_id', userId)
-          .eq('node_id', nodeId);
+          .eq('node_id', nodeId)
+          .eq('version', currentVersion)
+          .select()
+          .abortSignal(controller.signal);
+
+        clearTimeout(timer);
+
+        if (!error && data && data.length === 0) {
+          // 0 rows updated means version on DB changed: conflict!
+          conflictDetected = true;
+        }
       } catch {
         // offline fallback
       }
 
-      // 3. Update session storage if mock mode
-      if (typeof window !== 'undefined' && window.sessionStorage) {
+      // 3. Update session & local storage if mock mode
+      if (typeof window !== 'undefined') {
         try {
-          const raw = window.sessionStorage.getItem('__atlas_user_nodes__');
+          const raw =
+            window.sessionStorage?.getItem('__atlas_user_nodes__') ||
+            window.localStorage?.getItem('__atlas_user_nodes__');
           if (raw) {
             const list: UserNode[] = JSON.parse(raw);
             const found = list.find((u) => u.node_id === nodeId);
             if (found) {
-              found.status = newStatus as UserNode['status'];
-              found.completed_at = completedAt;
-              found.version = (found.version || 1) + 1;
-              window.sessionStorage.setItem('__atlas_user_nodes__', JSON.stringify(list));
+              if (expectedVersion !== undefined && found.version !== expectedVersion) {
+                conflictDetected = true;
+              } else {
+                found.status = newStatus as UserNode['status'];
+                found.completed_at = completedAt;
+                found.version = nextVersion;
+                const serialized = JSON.stringify(list);
+                window.sessionStorage?.setItem('__atlas_user_nodes__', serialized);
+                window.localStorage?.setItem('__atlas_user_nodes__', serialized);
+              }
             }
           }
         } catch {
@@ -228,7 +266,25 @@ export function useRoadmap(userId: string) {
         }
       }
 
-      return { nodeId, newStatus, completedAt };
+      if (conflictDetected) {
+        // Refetch latest state on conflict (PRD Section 12)
+        void queryClient.invalidateQueries({ queryKey });
+        return { nodeId, newStatus, completedAt, conflict: true };
+      }
+
+      // 4. Broadcast live sync event to other tabs/windows
+      broadcastSyncEvent({
+        type: 'USER_NODE_UPDATED',
+        userId,
+        payload: {
+          nodeId,
+          status: newStatus,
+          version: nextVersion,
+          completed_at: completedAt,
+        },
+      });
+
+      return { nodeId, newStatus, completedAt, conflict: false };
     },
 
     // Optimistic Update

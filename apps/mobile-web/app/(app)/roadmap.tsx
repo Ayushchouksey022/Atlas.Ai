@@ -11,6 +11,8 @@ import { useRoadmap } from '../../src/lib/useRoadmap';
 import { RoadmapGraphCanvas } from '../../src/components/RoadmapGraphCanvas';
 import { NodeDetailSheet } from '../../src/components/NodeDetailSheet';
 import { GraphBenchmarkModal } from '../../src/components/GraphBenchmarkModal';
+import { ConflictNotice } from '../../src/components/ConflictNotice';
+import { useRealtimeSync } from '../../src/lib/realtimeSync';
 import type { EnrichedRoadmapNode } from '../../src/lib/graphLayout';
 
 export default function RoadmapScreen() {
@@ -19,6 +21,7 @@ export default function RoadmapScreen() {
   const userId = user?.id || '00000000-0000-0000-0000-000000000099';
 
   const { data: roadmap, isLoading, error, updateStatus, refetch } = useRoadmap(userId);
+  const { conflictNotice, setConflictNotice, clearConflictNotice } = useRealtimeSync(userId);
 
   // UI state
   const [selectedNode, setSelectedNode] = useState<EnrichedRoadmapNode | null>(null);
@@ -38,7 +41,19 @@ export default function RoadmapScreen() {
   };
 
   const handleUpdateStatus = async (nodeId: string, newStatus: string) => {
-    await updateStatus({ nodeId, newStatus });
+    const res = await updateStatus({
+      nodeId,
+      newStatus,
+      expectedVersion: selectedNode?.version,
+    });
+
+    if (res && res.conflict) {
+      setConflictNotice(
+        'Version conflict: Another session modified this node. The latest version was fetched.',
+      );
+      return;
+    }
+
     // Update currently inspected node
     if (selectedNode && selectedNode.id === nodeId) {
       setSelectedNode((prev) =>
@@ -47,6 +62,7 @@ export default function RoadmapScreen() {
               ...prev,
               status: (newStatus === 'known' ? 'completed' : newStatus) as any,
               completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
+              version: (prev.version || 1) + 1,
             }
           : null,
       );
@@ -55,6 +71,8 @@ export default function RoadmapScreen() {
 
   return (
     <Screen contentContainerStyle={styles.container}>
+      <ConflictNotice message={conflictNotice} onDismiss={clearConflictNotice} />
+
       {/* Top Learning Profile & Stats Header */}
       <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.surface }]}>
         <View style={styles.headerTitleRow}>

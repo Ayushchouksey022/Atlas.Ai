@@ -22,6 +22,7 @@ import {
   generateBaselineRoadmap,
   applyInjection,
   applyOverride,
+  mergeRoadmapWithBaseline,
 } from './index';
 import type { CanonicalNode, CanonicalEdge, CanonicalGraph, UserNode, Roadmap } from '@repo/schemas';
 
@@ -783,3 +784,105 @@ describe('generateBaselineRoadmap pruning level tiebreaker', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// mergeRoadmapWithBaseline (PRD Section 11.5)
+// ---------------------------------------------------------------------------
+
+describe('mergeRoadmapWithBaseline', () => {
+  const nodeA = makeNode('A', 0);
+  const nodeB = makeNode('B', 1);
+  const nodeC = makeNode('C', 2);
+  const nodeD = makeNode('D', 1);
+  const edges = [makeEdge('A', 'B'), makeEdge('B', 'C'), makeEdge('A', 'D')];
+
+  it('preserves completed and archived nodes even if excluded from new baseline', () => {
+    // Current roadmap has A completed, B archived, C todo
+    const currentRoadmap = makeRoadmap(
+      [nodeA, nodeB, nodeC, nodeD],
+      edges,
+      [
+        {
+          ...makeUserNode('user-1', 'A', 'completed'),
+          completed_at: '2026-01-01T00:00:00Z',
+          version: 2,
+        },
+        {
+          ...makeUserNode('user-1', 'B', 'archived'),
+          version: 1,
+        },
+        {
+          ...makeUserNode('user-1', 'C', 'in_progress'),
+          version: 1,
+        },
+        {
+          ...makeUserNode('user-1', 'D', 'todo'),
+          version: 1,
+        },
+      ],
+    );
+
+    // New selection: user only selected D as known, area levels set to beginner
+    const result = mergeRoadmapWithBaseline(
+      currentRoadmap,
+      ['D'],
+      { 'editors-ides': 'beginner' },
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const merged = result.value;
+      const unA = merged.user_nodes.find((u) => u.node_id === 'A');
+      const unB = merged.user_nodes.find((u) => u.node_id === 'B');
+      const unC = merged.user_nodes.find((u) => u.node_id === 'C');
+      const unD = merged.user_nodes.find((u) => u.node_id === 'D');
+
+      // Completed node A must still be completed with original completed_at
+      expect(unA).toBeDefined();
+      expect(unA?.status).toBe('completed');
+      expect(unA?.completed_at).toBe('2026-01-01T00:00:00Z');
+      expect(unA?.version).toBe(3); // Incremented version
+
+      // Archived node B must still be archived
+      expect(unB).toBeDefined();
+      expect(unB?.status).toBe('archived');
+      expect(unB?.version).toBe(2);
+
+      // In-progress node C must still be in_progress
+      expect(unC).toBeDefined();
+      expect(unC?.status).toBe('in_progress');
+
+      // D was newly selected as known in baseline
+      expect(unD).toBeDefined();
+      expect(unD?.status).toBe('known');
+
+      // Result must remain a valid acyclic graph
+      const cycleCheck = validateAcyclic(merged.nodes, merged.edges);
+      expect(cycleCheck.ok).toBe(true);
+    }
+  });
+
+  it('is pure and never mutates inputs', () => {
+    const currentRoadmap = makeRoadmap(
+      [nodeA, nodeB],
+      [makeEdge('A', 'B')],
+      [
+        {
+          ...makeUserNode('user-1', 'A', 'completed'),
+          completed_at: '2026-01-01T00:00:00Z',
+          version: 1,
+        },
+        makeUserNode('user-1', 'B', 'todo'),
+      ],
+    );
+
+    const snapshotRoadmap = JSON.stringify(currentRoadmap);
+    const selected = Object.freeze(['B']);
+    const levels = Object.freeze({ 'editors-ides': 'expert' as const });
+
+    const result = mergeRoadmapWithBaseline(currentRoadmap, selected, levels);
+    expect(result.ok).toBe(true);
+    expect(JSON.stringify(currentRoadmap)).toBe(snapshotRoadmap);
+  });
+});
+

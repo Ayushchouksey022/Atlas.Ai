@@ -14,6 +14,7 @@ export default defineConfig({
       'supabase/functions/**/*.test.ts',
     ],
     alias: {
+      'react-native': 'react-native-web',
       '@repo/graph': path.resolve(import.meta.dirname, './packages/graph/src'),
       '@repo/schemas': path.resolve(import.meta.dirname, './packages/schemas/src'),
       '@repo/llm': path.resolve(import.meta.dirname, './packages/llm/src'),

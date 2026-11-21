@@ -40,7 +40,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Check if running in mock mode for testing/offline
       if (typeof window !== 'undefined') {
-        const mockAuth = window.sessionStorage?.getItem('__mock_auth__');
+        const mockAuth =
+          window.sessionStorage?.getItem('__mock_auth__') ||
+          window.localStorage?.getItem('__mock_auth__');
         if (mockAuth) {
           try {
             const parsed = JSON.parse(mockAuth);
@@ -118,10 +120,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
 
         if (typeof window !== 'undefined') {
-          window.sessionStorage?.setItem(
-            '__mock_auth__',
-            JSON.stringify({ user: mockUser, profile: mockProfile }),
-          );
+          const authPayload = JSON.stringify({ user: mockUser, profile: mockProfile });
+          window.sessionStorage?.setItem('__mock_auth__', authPayload);
+          window.localStorage?.setItem('__mock_auth__', authPayload);
         }
 
         set({
@@ -185,10 +186,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
 
         if (typeof window !== 'undefined') {
-          window.sessionStorage?.setItem(
-            '__mock_auth__',
-            JSON.stringify({ user: mockUser, profile: mockProfile }),
-          );
+          const authPayload = JSON.stringify({ user: mockUser, profile: mockProfile });
+          window.sessionStorage?.setItem('__mock_auth__', authPayload);
+          window.localStorage?.setItem('__mock_auth__', authPayload);
         }
 
         set({

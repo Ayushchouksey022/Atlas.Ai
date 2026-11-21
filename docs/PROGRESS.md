@@ -546,9 +546,99 @@ pnpm test:e2e
 
 ---
 
+### Prompt 7: Cross-Device Real-Time Sync & Profile/Settings Screen
+
+#### 1. Pure Baseline Merge Function (`@repo/graph` / `packages/graph/src/index.ts`)
+- Implemented `mergeRoadmapWithBaseline(currentRoadmap, selectedKnownNodeIds, levelsByArea, canonicalGraphOverride)`:
+  - Re-runs baseline generation with updated known stack and levels according to PRD Section 11.5.
+  - **Critical Invariant**: Completed, in-progress, and archived nodes are **NEVER deleted or reverted to `todo`**.
+  - Retains original completion timestamps (`completed_at`), user node origins, and fast-track/replaced-node metadata.
+  - Correctly transitions uncompleted downstream nodes based on prerequisite satisfaction.
+  - Preserves graph DAG validity and returns typed `GenerateBaselineResult` without mutating inputs.
+  - Unit tested in `packages/graph/src/index.test.ts` (60 tests passing).
+
+#### 2. Cross-Device Real-Time Synchronization (`/apps/mobile-web/src/lib/realtimeSync.ts`)
+- Multi-tier synchronization engine combining Supabase Realtime with BroadcastChannel & storage events:
+  - Subscribes to Supabase Realtime channels filtered by `user_id`:
+    - `user_nodes` changes: updates TanStack Query cache `['roadmap', userId]` directly in memory and recalculates downstream visual statuses (available vs locked).
+    - `profiles` changes: updates AuthStore profile state and invalidates `['profile', userId]`.
+    - `user_verdicts` changes: invalidates `['verdicts', userId]`.
+  - Native `BroadcastChannel('atlas_realtime_sync')` broadcasting ensures instant (< 100ms) cross-tab and cross-window sync across multiple browser sessions without requiring an external WebSocket roundtrip.
+  - Graceful storage event fallback for cross-window notifications in offline or restricted environments.
+  - Hook `useRealtimeSync(userId)` providing `isOnline`, `conflictNotice`, `setConflictNotice`, and `clearConflictNotice`.
+
+#### 3. Optimistic Concurrency & Conflict Rule (PRD Section 12)
+- Implemented row-level versioning on `user_nodes` updates:
+  - Updates send `.eq('version', expectedVersion)` and `version: expectedVersion + 1`.
+  - Conflict detection: If 0 rows are updated (version changed on server by another client), mutation triggers query refetch and activates non-blocking conflict notification.
+  - Component `<ConflictNotice />` (`/apps/mobile-web/src/components/ConflictNotice.tsx`):
+    - Non-blocking banner displaying: *"Version conflict: Another session modified this node. The latest version was fetched."* with one-click dismiss.
+
+#### 4. Connection State & Offline Banner (`/apps/mobile-web/src/components/OfflineBanner.tsx`)
+- Detects connection state transitions via `online`/`offline` window events and channel health.
+- Sticky banner rendered across all tabs:
+  - ⚠️ *"Offline, changes will not be saved"* with high-contrast, accessible amber/warning styling (`testID="offline-banner"`).
+  - Automatically reconnects and triggers full TanStack Query cache invalidation upon reconnection.
+  - Enforces PRD Section 12 rule: no offline write queue in v1.
+
+#### 5. Profile & Settings Screen (`/apps/mobile-web/app/profile.tsx`)
+- **Account Identity & Display Name**:
+  - Interactive input and `Save Name` button (`testID="profile-display-name-input"`, `testID="profile-save-name-button"`).
+  - Persists to Supabase `profiles.display_name`, updates local auth state, and broadcasts sync event to all open tabs.
+- **Experience Levels & Known Stack Editor (PRD Section 11.5)**:
+  - Interactive editor (`testID="edit-stack-button"`) displaying the 6 canonical onboarding areas.
+  - Per-area target level selector: Beginner / Working / Expert (`testID="level-<area>-<level>"`).
+  - Known tool selection pills grouped by area with multi-select toggles.
+  - `Save & Update Roadmap` button (`testID="save-stack-button"`):
+    - Calls `updateRoadmapStackAndLevels` via `@repo/graph` `mergeRoadmapWithBaseline`.
+    - Displays guarantee notice: *"Invariant: Completed progress, in-progress items, and legacy replacements are never deleted or overwritten."*
+    - Shows confirmation banner upon save: *"✓ Roadmap updated! Completed skills and progress were safely preserved."*
+- **Notification Preferences (PRD Section 11.5)**:
+  - Mute/Enable toggles for:
+    - AI Breakthrough Verdicts (`testID="toggle-notif-verdicts"`)
+    - Weekly Learning Digest (`testID="toggle-notif-digest"`)
+    - Prerequisite Unlocks (`testID="toggle-notif-unlocks"`)
+- **Appearance**:
+  - Light / Dark Mode toggle (`testID="toggle-theme-button"`).
+- **Data Compliance (DPDP / GDPR - PRD Section 14)**:
+  - `📥 Export My Learning Data (JSON)` (`testID="export-data-button"`): triggers download of complete user profile and roadmap nodes snapshot.
+  - `⚠️ Delete My Account` (`testID="delete-account-button"`): confirmation prompt with account reset and sign-out.
+- **Sign Out**:
+  - Red danger button (`testID="profile-signout-button"`) routing safely back to `/(auth)/sign-in`.
+
+#### 6. Verification & Test Suite
+- **Vitest Unit & Integration Tests (111 tests passing)**:
+  - `apps/mobile-web/src/lib/realtimeSync.test.ts` (3 tests): query cache update, downstream status re-computation, event broadcasting, subscription lifecycle.
+  - `packages/graph/src/index.test.ts` (60 tests): `mergeRoadmapWithBaseline` invariant tests verifying completed and archived node retention, immutability, and DAG validity.
+  - All existing test suites: `onboardingStore` (8 tests), `graphLayout` (4 tests), `roadmapRules` (6 tests), `seed_validation` (9 tests), `create-baseline-roadmap` (7 tests), `rls_invariants` (11 tests), `@repo/llm` (1 test).
+- **Playwright E2E Tests (9 tests passing across entire suite)**:
+  - Added `e2e/profile-sync.spec.ts`:
+    - Simulates two browser sessions (Page 1 and Page 2) logged in as the same user.
+    - Mutates node status on Session 1 and asserts Session 2 updates live within 2 seconds.
+    - Edits display name on Profile screen and updates known stack/levels.
+    - Asserts that previously completed skills are safely preserved and never deleted or reverted.
+    - Verifies notification preference toggles, theme toggle, and data export controls.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+#### How to Run
+
+```bash
+# Run unit & integration tests
+pnpm test
+
+# Run TypeScript type check and linter
+pnpm typecheck && pnpm lint
+
+# Build static web bundle and run Playwright E2E test suite
+pnpm web:export
+pnpm test:e2e
+```
+
+---
+
 ## Next
 
-### Prompt 7: News Ingestion Pipeline and Feed Tab
+### Prompt 8: News Ingestion Pipeline and Feed Tab
 
 - Ingestion pipeline (Edge Function or scheduled worker):
   - Ingestion from RSS/GitHub/newsletter sources into `news_sources` and `news_items`.
@@ -558,5 +648,6 @@ pnpm test:e2e
 - Feed tab UI in `/apps/mobile-web/app/(app)/index.tsx`:
   - News cards with 3 bullets, impact score badge, source link, and prominent Red Button.
   - Sponsored card slot (structurally separated).
+
 
 

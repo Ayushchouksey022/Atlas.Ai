@@ -1,13 +1,15 @@
 import { supabase } from './supabase';
-import { generateBaselineRoadmap } from '@repo/graph';
+import { generateBaselineRoadmap, mergeRoadmapWithBaseline } from '@repo/graph';
 import type {
   CanonicalGraph,
   CanonicalNode,
   LevelsByArea,
   Roadmap,
+  UserNode,
 } from '@repo/schemas';
 import seedData from '../../../../supabase/seed/canonical-graph/ai-assisted-software-development.json';
 import { useAuthStore } from './authStore';
+import { broadcastSyncEvent } from './realtimeSync';
 
 export interface CreateBaselineParams {
   domainId?: string;
@@ -143,24 +145,27 @@ export async function createBaselineRoadmap(
 
   const roadmap = result.value;
 
-  // Persist locally in sessionStorage if running in mock auth mode
-  if (typeof window !== 'undefined' && window.sessionStorage) {
+  // Persist locally in storage if running in mock auth mode
+  if (typeof window !== 'undefined') {
     try {
-      const mockAuthRaw = window.sessionStorage.getItem('__mock_auth__');
+      const mockAuthRaw =
+        window.sessionStorage?.getItem('__mock_auth__') ||
+        window.localStorage?.getItem('__mock_auth__');
       if (mockAuthRaw) {
         const parsed = JSON.parse(mockAuthRaw);
         if (parsed.profile) {
           parsed.profile.onboarding_completed = true;
           parsed.profile.experience = params.levelsByArea;
           parsed.profile.domain_id = domainId;
-          window.sessionStorage.setItem('__mock_auth__', JSON.stringify(parsed));
+          const authSerialized = JSON.stringify(parsed);
+          window.sessionStorage?.setItem('__mock_auth__', authSerialized);
+          window.localStorage?.setItem('__mock_auth__', authSerialized);
         }
       }
-      // Store user nodes in mock session for E2E validation
-      window.sessionStorage.setItem(
-        '__atlas_user_nodes__',
-        JSON.stringify(roadmap.user_nodes),
-      );
+      // Store user nodes in mock storage for E2E validation
+      const nodesSerialized = JSON.stringify(roadmap.user_nodes);
+      window.sessionStorage?.setItem('__atlas_user_nodes__', nodesSerialized);
+      window.localStorage?.setItem('__atlas_user_nodes__', nodesSerialized);
     } catch {
       // ignore
     }
@@ -198,3 +203,155 @@ export async function createBaselineRoadmap(
 
   return roadmap;
 }
+
+/**
+ * Re-runs baseline generation with updated known stack and levels WITHOUT losing
+ * completed, in-progress, or archived state (PRD Section 11.5).
+ */
+export async function updateRoadmapStackAndLevels(
+  selectedNodeIds: string[],
+  levelsByArea: LevelsByArea,
+): Promise<Roadmap> {
+  const { user, profile } = useAuthStore.getState();
+  const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+  const domainId = profile?.domain_id || '00000000-0000-0000-0000-000000000001';
+  const canonicalGraph = getBundledCanonicalGraph(domainId);
+
+  // 1. Fetch current user_nodes
+  let currentUserNodes: UserNode[] = [];
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 600);
+    const { data, error } = await supabase
+      .from('user_nodes')
+      .select('*')
+      .eq('user_id', userId)
+      .abortSignal(controller.signal);
+    clearTimeout(timer);
+    if (!error && data && data.length > 0) {
+      currentUserNodes = data as unknown as UserNode[];
+    }
+  } catch {
+    // offline
+  }
+
+  // Fallback to mock session storage
+  if (currentUserNodes.length === 0 && typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const raw = window.sessionStorage.getItem('__atlas_user_nodes__');
+      if (raw) {
+        currentUserNodes = JSON.parse(raw);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // If still empty, initialize from canonical
+  if (currentUserNodes.length === 0) {
+    currentUserNodes = canonicalGraph.nodes.map((n, idx) => ({
+      id: `init-un-${idx}`,
+      user_id: userId,
+      node_id: n.id,
+      status: 'todo',
+      origin: 'baseline' as const,
+      fast_track: false,
+      replaced_node_id: null,
+      completed_at: null,
+      version: 1,
+    }));
+  }
+
+  const currentRoadmap: Roadmap = {
+    user_id: userId,
+    domain_id: domainId,
+    nodes: canonicalGraph.nodes,
+    edges: canonicalGraph.edges,
+    user_nodes: currentUserNodes,
+  };
+
+  // 2. Pure immutable merge via @repo/graph
+  const mergeResult = mergeRoadmapWithBaseline(
+    currentRoadmap,
+    selectedNodeIds,
+    levelsByArea,
+    canonicalGraph,
+  );
+
+  if (!mergeResult.ok) {
+    throw new Error(`Failed to merge roadmap: ${mergeResult.error}`);
+  }
+
+  const mergedRoadmap = mergeResult.value;
+
+  // 3. Persist to Supabase
+  try {
+    // Update profile experience
+    await supabase
+      .from('profiles')
+      .update({
+        experience: levelsByArea,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    // Upsert merged user_nodes
+    const userNodesPayload = mergedRoadmap.user_nodes.map((un) => ({
+      user_id: userId,
+      node_id: un.node_id,
+      status: un.status,
+      origin: un.origin,
+      fast_track: un.fast_track,
+      replaced_node_id: un.replaced_node_id,
+      completed_at: un.completed_at,
+      version: un.version,
+    }));
+
+    await supabase.from('user_nodes').upsert(userNodesPayload, {
+      onConflict: 'user_id,node_id',
+    });
+  } catch {
+    // offline fallback
+  }
+
+  // 4. Update storage if mock mode
+  if (typeof window !== 'undefined') {
+    try {
+      const nodesSerialized = JSON.stringify(mergedRoadmap.user_nodes);
+      window.sessionStorage?.setItem('__atlas_user_nodes__', nodesSerialized);
+      window.localStorage?.setItem('__atlas_user_nodes__', nodesSerialized);
+
+      const mockAuthRaw =
+        window.sessionStorage?.getItem('__mock_auth__') ||
+        window.localStorage?.getItem('__mock_auth__');
+      if (mockAuthRaw) {
+        const parsed = JSON.parse(mockAuthRaw);
+        if (parsed.profile) {
+          parsed.profile.experience = levelsByArea;
+          const authSerialized = JSON.stringify(parsed);
+          window.sessionStorage?.setItem('__mock_auth__', authSerialized);
+          window.localStorage?.setItem('__mock_auth__', authSerialized);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 5. Update local AuthStore profile
+  if (profile) {
+    useAuthStore.getState().setProfile({
+      ...profile,
+      experience: levelsByArea,
+    });
+  }
+
+  // 6. Broadcast sync event to all open tabs/windows
+  broadcastSyncEvent({
+    type: 'ROADMAP_UPDATED',
+    userId,
+  });
+
+  return mergedRoadmap;
+}
+
