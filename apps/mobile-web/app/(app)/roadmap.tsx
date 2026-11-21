@@ -1,71 +1,233 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Screen, Card, Badge, useTheme } from '../../src/design-system';
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
+import { Screen, Badge, Button, useTheme } from '../../src/design-system';
 import { useAuth } from '../../src/lib/AuthProvider';
+import { useRoadmap } from '../../src/lib/useRoadmap';
+import { RoadmapGraphCanvas } from '../../src/components/RoadmapGraphCanvas';
+import { NodeDetailSheet } from '../../src/components/NodeDetailSheet';
+import { GraphBenchmarkModal } from '../../src/components/GraphBenchmarkModal';
+import type { EnrichedRoadmapNode } from '../../src/lib/graphLayout';
 
 export default function RoadmapScreen() {
   const { theme, spacing, typography } = useTheme();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
+  const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+
+  const { data: roadmap, isLoading, error, updateStatus, refetch } = useRoadmap(userId);
+
+  // UI state
+  const [selectedNode, setSelectedNode] = useState<EnrichedRoadmapNode | null>(null);
+  const [showLegacy, setShowLegacy] = useState(false);
+  const [showBenchmark, setShowBenchmark] = useState(false);
+
+  // Prerequisites of the selected node
+  const selectedNodePrerequisites = useMemo(() => {
+    if (!selectedNode || !roadmap) return [];
+    const prereqIds = roadmap.prereqMap.get(selectedNode.id) || [];
+    const prereqIdSet = new Set(prereqIds);
+    return roadmap.nodes.filter((n) => prereqIdSet.has(n.id));
+  }, [selectedNode, roadmap]);
+
+  const handleSelectNode = (node: EnrichedRoadmapNode) => {
+    setSelectedNode(node);
+  };
+
+  const handleUpdateStatus = async (nodeId: string, newStatus: string) => {
+    await updateStatus({ nodeId, newStatus });
+    // Update currently inspected node
+    if (selectedNode && selectedNode.id === nodeId) {
+      setSelectedNode((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: (newStatus === 'known' ? 'completed' : newStatus) as any,
+              completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
+            }
+          : null,
+      );
+    }
+  };
 
   return (
-    <Screen scrollable contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text, ...typography.xl }]}>
-          Interactive Learning DAG
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Roadmap for domain: ai-assisted-software-development
-        </Text>
-      </View>
+    <Screen contentContainerStyle={styles.container}>
+      {/* Top Learning Profile & Stats Header */}
+      <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.surface }]}>
+        <View style={styles.headerTitleRow}>
+          <View>
+            <View style={styles.domainTagRow}>
+              <Badge label="AI-Assisted Software Development" variant="primary" />
+              <Badge label="Interactive DAG" variant="outline" />
+            </View>
+            <Text style={[styles.screenTitle, { color: theme.text, ...typography.xl }]}>
+              {profile?.display_name ? `${profile.display_name}'s Roadmap` : 'Your Skill Roadmap'}
+            </Text>
+          </View>
 
-      <Card style={styles.card}>
-        <View style={styles.badgeRow}>
-          <Badge label="Active Roadmap" variant="primary" />
-          <Badge label="Prompt 6: Skia Interactive DAG" variant="outline" />
+          <Button
+            testID="roadmap-benchmark-button"
+            title="⚡ 200-Node FPS"
+            variant="outline"
+            size="sm"
+            onPress={() => setShowBenchmark(true)}
+          />
         </View>
 
-        <Text style={[styles.cardTitle, { color: theme.text, ...typography.lg }]}>
-          Learner: {profile?.display_name || 'Active User'}
-        </Text>
-        <Text style={[styles.cardDescription, { color: theme.textSecondary, marginBottom: spacing.md }]}>
-          Your skill graph updates automatically when new AI developments emerge. Interactive pan, zoom, drag, and status controls will be rendered in Milestone 2 (Prompt 6).
-        </Text>
-      </Card>
+        {/* Stats Row */}
+        {roadmap ? (
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.success }]}>
+                {roadmap.stats.completed}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Completed</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: '#3b82f6' }]}>
+                {roadmap.stats.inProgress}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>In Progress</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.primary }]}>
+                {roadmap.stats.available}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Available</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.textMuted }]}>
+                {roadmap.stats.locked}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Locked</Text>
+            </View>
+            {roadmap.stats.archived > 0 && (
+              <>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={[styles.statValue, { color: theme.textMuted }]}>
+                    {roadmap.stats.archived}
+                  </Text>
+                  <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Legacy</Text>
+                </View>
+              </>
+            )}
+          </View>
+        ) : null}
+      </View>
+
+      {/* Main Roadmap Area */}
+      {isLoading ? (
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={{ color: theme.textSecondary, marginTop: spacing.md }}>
+            Loading prerequisite graph...
+          </Text>
+        </View>
+      ) : error ? (
+        <View style={styles.centerBox}>
+          <Text style={{ color: theme.error, marginBottom: spacing.md }}>
+            Failed to load roadmap: {(error as Error).message}
+          </Text>
+          <Button title="Retry" onPress={() => refetch()} />
+        </View>
+      ) : roadmap ? (
+        <View style={styles.graphContainer}>
+          <RoadmapGraphCanvas
+            nodes={roadmap.nodes}
+            edges={roadmap.edges}
+            showLegacy={showLegacy}
+            onSelectNode={handleSelectNode}
+            selectedNodeId={selectedNode?.id}
+            onOpenBenchmark={() => setShowBenchmark(true)}
+            onToggleLegacy={() => setShowLegacy((v) => !v)}
+          />
+        </View>
+      ) : null}
+
+      {/* Node Detail Sheet */}
+      <NodeDetailSheet
+        node={selectedNode}
+        visible={selectedNode !== null}
+        onClose={() => setSelectedNode(null)}
+        prerequisites={selectedNodePrerequisites}
+        onUpdateStatus={handleUpdateStatus}
+        onSelectNode={(prereqId) => {
+          const found = roadmap?.nodes.find((n) => n.id === prereqId);
+          if (found) setSelectedNode(found);
+        }}
+      />
+
+      {/* 200-Node Performance Benchmark Modal */}
+      <GraphBenchmarkModal
+        visible={showBenchmark}
+        onClose={() => setShowBenchmark(false)}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 40,
-    maxWidth: 720,
-    width: '100%',
-    alignSelf: 'center',
+    flex: 1,
   },
   header: {
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
-  title: {
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-  },
-  card: {
-    marginBottom: 16,
-  },
-  badgeRow: {
+  headerTitleRow: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
-  cardTitle: {
-    fontWeight: '700',
-    marginBottom: 8,
+  domainTagRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 4,
   },
-  cardDescription: {
-    fontSize: 14,
-    lineHeight: 20,
+  screenTitle: {
+    fontWeight: '800',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  statLabel: {
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(150,150,150,0.2)',
+  },
+  centerBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  graphContainer: {
+    flex: 1,
+    position: 'relative',
   },
 });
