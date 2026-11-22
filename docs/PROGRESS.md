@@ -820,8 +820,6 @@ curl -X POST http://127.0.0.1:54321/functions/v1/process-news-item \
 
 ---
 
-## Next
-
 ### Prompt 10: News Feed Tab & Presentation
 
 #### 1. News Feed UI Architecture (`apps/mobile-web/app/(app)/index.tsx`)
@@ -858,34 +856,82 @@ curl -X POST http://127.0.0.1:54321/functions/v1/process-news-item \
 
 #### 4. Verification & Test Suite
 - **140 unit & integration tests passing across 13 test suites (`pnpm test`)**:
-  - `apps/mobile-web/src/components/NewsCard.test.tsx` (6 tests):
-    - Renders article title, source attribution, and relative timestamp.
-    - Strictly enforces PRD invariant of exactly 3 bullet points.
-    - Verifies prominent Red Button presence and touch target.
-    - Conditional rendering of "Matches your roadmap" badge.
-    - Relative time formatting utility (`m`, `h`, `d`).
-    - Impact score color tiering across low, medium, and high scores.
-  - `apps/mobile-web/src/components/SponsoredCard.test.tsx` (2 tests):
-    - Renders SPONSORED badge, sponsor attribution, title, description, and CTA.
-    - Structural separation invariant verification: asserts props contain no news, verdict, or roadmap keys.
-  - `e2e/feed.spec.ts`:
-    - Full Playwright E2E test verifying feed rendering, 3-bullet presentation, impact scale modal open/close, Red Button modal preview, and interleaved card rendering.
+  - `apps/mobile-web/src/components/NewsCard.test.tsx` (6 tests).
+  - `apps/mobile-web/src/components/SponsoredCard.test.tsx` (2 tests).
+  - `e2e/feed.spec.ts`: full Playwright E2E test verifying feed rendering, 3-bullet presentation, impact scale modal open/close, Red Button modal preview, and interleaved card rendering.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+---
+
+### Prompt 11: Verdict Engine (Server-Side Logic & Edge Functions)
+
+#### 1. Pure Verdict Engine & Placement in `@repo/graph` (`packages/graph/src/verdict.ts`)
+- **`decideVerdict(llmOutput, context)`**:
+  - Enforces all PRD Section 9.2 decision rules deterministically. The LLM proposes; deterministic code decides:
+    - **Shield**: Triggered on domain mismatch, `impact_score < 6`, proposed node not approved in canonical graph, unknown slugs, or `confidence < 0.6` (downgrades and flags for editorial review).
+    - **Override**: Allowed ONLY if an approved `node_supersedes` row links an existing non-archived user node to the new approved canonical node.
+    - **Injection**: Allowed ONLY if the new node is approved, not already in the user's roadmap, and `impact_score >= 7`.
+    - **Cycle Prevention**: Verifies candidate placement does not create a cycle; downgrades to Shield if a cycle would result.
+- **`computePlacement(newNodeId, canonicalEdges, roadmap, preferredInsertAfterSlugs)`**:
+  - Implements the PRD 8.2 placement rule: places new node after the deepest satisfied prerequisite (`known`, `completed`, `archived`) in the user's roadmap; before any of its dependents.
+- **Cache Key & Cohorting (`computeCacheKey`, `computeExperienceBucket`)**:
+  - Pure deterministic helper calculating: `cache_key = hash(news_item_id + sorted relevant node ids + experience bucket)`.
+  - Normalized experience bucketing (`beginner`, `working`, `expert`) from `profiles.experience`.
+
+#### 2. Server-Side Edge Functions
+- **`compute-verdict` (`supabase/functions/compute-verdict/index.ts`)**:
+  - Resolves user from Supabase JWT authentication.
+  - **Precomputed Hit**: Returns cached verdict and remaining analyses without consuming free-tier quota (precomputed previews do not count).
+  - **On-Demand Path**:
+    - Enforces free-tier daily analysis limit (default 10/day from `FREE_TIER_DAILY_ANALYSES` in `usage_counters`); returns 429 `DAILY_LIMIT_EXCEEDED` when exhausted.
+    - Reuses cached verdict if another user in the same cohort already evaluated it (`cache_hit: true`, zero LLM calls).
+    - If uncached: calls `@repo/llm` `verdictPrompt` (strong tier), validates output, runs `decideVerdict`, stores in `verdicts`.
+    - Tracks and increments on-demand usage counter, creates `user_verdicts(state='previewed')`, and returns remaining analyses count.
+- **`precompute-verdicts` (`supabase/functions/precompute-verdicts/index.ts`)**:
+  - Automatically triggered for published news items with `impact_score >= 5` (PRD 10.2).
+  - Groups active users (`onboarding_completed = true`) by `cache_key` so cost scales with cohorts rather than total users.
+  - Executes at most 1 LLM call per unique cohort, stores the verdict, and creates `user_verdicts(state='precomputed')` for all users in the cohort.
+  - Idempotent and safe to re-run.
+
+#### 3. Sponsorship Integrity Invariant (PRD Section 14)
+- Verdict functions and Edge Functions accept NO sponsor-related input.
+- Verified by unit tests to reject and ignore sponsor fields, preventing algorithm or verdict manipulation.
+
+#### 4. Verification & Test Suite
+- **166 unit & integration tests passing across 15 test suites (`pnpm test`)**:
+  - `packages/graph/src/verdict.test.ts` (19 tests):
+    - Table-driven tests for every decision rule (domain mismatch, impact score < 6, low confidence downgrade, unapproved node, unknown slugs).
+    - Override validation: active target in roadmap, approved supersedes link, rejection of archived/missing target.
+    - Injection validation: approved node, impact score >= 7, not in roadmap, cycle detection.
+    - Placement rule: deepest satisfied prerequisite selection.
+    - Sponsorship integrity: verifies verdict context contains no sponsor fields.
+    - Deterministic guarantee: malicious/hallucinated LLM output can never produce invalid mutations.
+  - `supabase/functions/verdict-engine.test.ts` (7 tests):
+    - On-demand analysis with usage counter increment and daily limit enforcement.
+    - Cache hit path: second user in same cohort triggers 0 LLM calls.
+    - Precomputed preview path: does not consume daily free-tier analyses.
+    - Precompute batch worker: cohort grouping, 1 LLM call per cohort, batch `user_verdicts` creation.
+    - Low-impact skip: items with impact < 5 skipped.
+    - Sponsorship integrity: Edge Function rejects and excludes all sponsor data.
+- **10 / 10 Playwright E2E tests passing (`pnpm test:e2e`)**:
+  - All existing browser E2E flows continue to pass cleanly.
 - **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
 
 ---
 
 ## Next
 
-### Prompt 11: Red Button Verdict Engine & Interactive Previews
+### Prompt 12: Red Button UI and the apply flow
 
-- Supabase Edge Function `compute-verdict` (server-side, cached per user+item+roadmap version):
-  - Fast-tier LLM verdict prompt (`@repo/llm`).
-  - Classifies news against user's active roadmap: Shield (irrelevant/no-op), Injection (new skill to learn), Override (replaces existing tool).
-  - Returns rationale, affected nodes, and proposed delta actions.
-- Interactive verdict preview modal:
-  - Verdict breakdown with visual language (Shield = blue, Injection = green, Override = amber, icon + label).
-  - Action buttons: "Accept & Update Roadmap" or "Dismiss".
-- Optimistic update to `user_nodes` and `user_verdicts`.
+- Wire the Red Button end to end in `/apps/mobile-web`:
+  - Tap Red Button: fetch precomputed verdict (instant) or request on-demand analysis (show loading state & handle daily limit reached).
+  - Interactive preview modal:
+    - Shield: "No changes to your roadmap" + reasoning.
+    - Injection: mini-diagram showing new node and where it connects; "Add to my roadmap" / "Dismiss".
+    - Override: shows old node → new node, legacy retention explanation; "Swap" / "Dismiss".
+  - `apply-verdict` Edge Function: transactional mutation validating acyclic and approved node, applying injection/override, bumping version, setting `user_verdicts.state = 'applied'`.
+  - Navigate to Roadmap tab with highlight on changed node(s).
+
 
 
 
