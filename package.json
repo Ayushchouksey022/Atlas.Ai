@@ -18,6 +18,7 @@
     "db:migrate": "supabase migration up",
     "graph:validate": "tsx scripts/validate-graph.ts",
     "graph:seed": "tsx scripts/seed-graph.ts",
+    "grant-editor": "tsx scripts/grant-editor.ts",
     "llm:smoke": "tsx packages/llm/src/smoke.ts"
   },
   "devDependencies": {

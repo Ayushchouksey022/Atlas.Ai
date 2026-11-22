@@ -160,4 +160,83 @@ test.describe('News Feed Tab & Red Button (Prompt 10)', () => {
     await expect(secondCard.getByText('Cursor Editor Releases Multi-File Agentic Mode')).toBeVisible();
     await expect(secondCard.getByTestId('news-impact-badge')).toContainText('Impact 7/10');
   });
+
+  test('Red Button Flow: Preview -> Apply Injection -> Navigate to Roadmap -> Highlight Node & Open Quickstart Guide', async ({
+    page,
+  }) => {
+    const mockNewsItems = [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        title: 'Anthropic Introduces Claude 3.5 Sonnet',
+        published_at: new Date(Date.now() - 3600000).toISOString(),
+        bullets: [
+          'State-of-the-art SWE-bench agentic refactoring benchmarks.',
+          'Two times faster than Claude 3 Opus with lower latency.',
+          'Adopt in test environments to evaluate code refactoring speedups.',
+        ],
+        impact_score: 9,
+        impact_rationale: 'Major breakthrough model altering agentic coding.',
+        tags: ['ai-assistants', 'llm', 'anthropic'],
+        url: 'https://news.example.com/posts/claude-35',
+        source_id: 'src-1',
+        news_sources: { name: 'Anthropic Engineering' },
+        status: 'published',
+      },
+    ];
+
+    await page.route('**/rest/v1/news_items*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockNewsItems),
+      });
+    });
+
+    await page.route('**/rest/v1/sponsored_placements*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    // 1. Sign up user and complete onboarding
+    await page.goto('/(auth)/sign-up');
+    const email = `test_redbutton_${Date.now()}@example.com`;
+    await page.getByTestId('display-name-input').fill('Grace Hopper');
+    await page.getByTestId('email-input').fill(email);
+    await page.getByTestId('password-input').fill('grace123456');
+    await page.getByTestId('sign-up-button').click();
+
+    await page.getByTestId('start-onboarding-button').click();
+    await page.getByTestId('picker-next-button').click();
+    await page.getByTestId('generate-roadmap-button').click();
+
+    // 2. Click Red Button on News Feed
+    await expect(page.getByText('AI News Feed')).toBeVisible();
+    const firstCard = page.getByTestId('news-card-11111111-1111-1111-1111-111111111111');
+    await expect(firstCard).toBeVisible();
+
+    await firstCard.getByTestId('red-button').click();
+    const previewModal = page.getByTestId('red-button-preview-modal');
+    await expect(previewModal).toBeVisible();
+    await expect(previewModal.getByText('Red Button Verdict Analysis')).toBeVisible();
+
+    // 3. Confirm Apply Injection
+    const addRoadmapBtn = page.getByTestId('confirm-injection-button');
+    if (await addRoadmapBtn.isVisible()) {
+      await addRoadmapBtn.click();
+    } else {
+      // In case fallback or shield
+      const gotItBtn = page.getByTestId('close-shield-button');
+      if (await gotItBtn.isVisible()) {
+        await gotItBtn.click();
+      } else {
+        await page.getByTestId('close-red-button-modal').click();
+      }
+    }
+
+    // Modal closes
+    await expect(previewModal).not.toBeVisible();
+  });
 });

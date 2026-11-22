@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { Screen, Badge, Button, useTheme } from '../../src/design-system';
 import { useAuth } from '../../src/lib/AuthProvider';
 import { useRoadmap } from '../../src/lib/useRoadmap';
@@ -16,17 +18,29 @@ import { useRealtimeSync } from '../../src/lib/realtimeSync';
 import type { EnrichedRoadmapNode } from '../../src/lib/graphLayout';
 
 export default function RoadmapScreen() {
-  const { theme, spacing, typography } = useTheme();
+  const { theme, spacing, typography, radii } = useTheme();
   const { user, profile } = useAuth();
   const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+  const params = useLocalSearchParams<{ highlight?: string }>();
 
   const { data: roadmap, isLoading, error, updateStatus, refetch } = useRoadmap(userId);
   const { conflictNotice, setConflictNotice, clearConflictNotice } = useRealtimeSync(userId);
 
   // UI state
   const [selectedNode, setSelectedNode] = useState<EnrichedRoadmapNode | null>(null);
+  const [highlightedNode, setHighlightedNode] = useState<EnrichedRoadmapNode | null>(null);
   const [showLegacy, setShowLegacy] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
+
+  // 4. Highlight newly applied node from verdict application
+  useEffect(() => {
+    if (params.highlight && roadmap) {
+      const match = roadmap.nodes.find((n) => n.id === params.highlight);
+      if (match) {
+        setHighlightedNode(match);
+      }
+    }
+  }, [params.highlight, roadmap]);
 
   // Prerequisites of the selected node
   const selectedNodePrerequisites = useMemo(() => {
@@ -72,6 +86,47 @@ export default function RoadmapScreen() {
   return (
     <Screen contentContainerStyle={styles.container}>
       <ConflictNotice message={conflictNotice} onDismiss={clearConflictNotice} />
+
+      {/* Highlight / Quickstart Offer Banner */}
+      {highlightedNode && (
+        <View
+          style={[
+            styles.highlightBanner,
+            {
+              backgroundColor: 'rgba(22, 163, 74, 0.08)',
+              borderColor: '#16a34a',
+              borderRadius: radii.md,
+            },
+          ]}
+          testID="applied-node-highlight-banner"
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.highlightBannerTitle, { color: '#15803d' }]}>
+              ✨ Roadmap Updated: {highlightedNode.name}
+            </Text>
+            <Text style={[styles.highlightBannerText, { color: theme.textSecondary }]}>
+              Successfully added to your roadmap. Start learning with the step-by-step quickstart guide.
+            </Text>
+          </View>
+          <View style={styles.highlightBannerActions}>
+            <Button
+              title="Open Quickstart Guide"
+              size="sm"
+              variant="primary"
+              onPress={() => setSelectedNode(highlightedNode)}
+              testID="open-quickstart-guide-button"
+            />
+            <TouchableOpacity
+              onPress={() => setHighlightedNode(null)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.dismissBannerBtn}
+              testID="dismiss-highlight-banner"
+            >
+              <Text style={{ color: theme.textSecondary, fontSize: 16 }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Top Learning Profile & Stats Header */}
       <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.surface }]}>
@@ -247,5 +302,36 @@ const styles = StyleSheet.create({
   graphContainer: {
     flex: 1,
     position: 'relative',
+  },
+  highlightBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    zIndex: 10,
+  },
+  highlightBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  highlightBannerText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  highlightBannerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dismissBannerBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

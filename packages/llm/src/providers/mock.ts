@@ -178,7 +178,7 @@ export class MockProvider extends BaseLLMProvider {
           {
             step_number: 1,
             title: 'Install package dependencies',
-            instruction: 'Run pnpm install in your project root.',
+            instruction: 'Run pnpm install in your project root to fetch required modules.',
             estimated_minutes: 3,
             code_snippet: 'pnpm install',
           },
@@ -191,18 +191,32 @@ export class MockProvider extends BaseLLMProvider {
           },
           {
             step_number: 3,
+            title: 'Initialize workspace configuration',
+            instruction: 'Generate the initial config schema file using the setup utility.',
+            estimated_minutes: 4,
+            code_snippet: 'pnpm init:config',
+          },
+          {
+            step_number: 4,
             title: 'Execute first workflow test',
             instruction: 'Run the test suite to verify connectivity and setup.',
             estimated_minutes: 5,
             code_snippet: 'pnpm test',
           },
+          {
+            step_number: 5,
+            title: 'Verify refactored output diff',
+            instruction: 'Review generated changes using git diff before committing.',
+            estimated_minutes: 4,
+            code_snippet: 'git status && git diff',
+          },
         ],
-        verification: 'Check that all 3 steps pass with zero exit codes.',
+        verification: 'Check that all 5 steps pass with zero exit codes and valid git status.',
         common_pitfalls: [
-          'Using Node 18 or older',
-          'Omitting required environment keys',
+          'Using Node 18 or older instead of Node 20+',
+          'Omitting required environment keys in .env.local',
         ],
-        source_links: ['https://example.com/docs'],
+        source_links: ['https://example.com/docs', 'https://example.com/releases'],
       };
     }
 

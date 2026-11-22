@@ -919,18 +919,177 @@ curl -X POST http://127.0.0.1:54321/functions/v1/process-news-item \
 
 ---
 
+### Prompt 12: Red Button UI and the Apply Flow
+
+#### 1. Interactive Red Button Modal & Client Integration (`apps/mobile-web/app/(app)/index.tsx`, `apps/mobile-web/src/components/VerdictPreviewModal.tsx`)
+- **Instant Precomputed or On-Demand Fetch**:
+  - Tapping the Red Button first checks if a precomputed verdict exists in `user_verdicts`/`verdicts` for instant presentation with zero API latency.
+  - If uncached, displays an accessible loading state while calling `compute-verdict` Edge Function.
+  - Daily limit enforcement: detects 429 / `DAILY_LIMIT_EXCEEDED` and presents a friendly modal notification indicating 0 remaining daily on-demand analyses while explaining precomputed verdicts remain free.
+- **Accessible Visual Preview UI (PRD Section 11.4 & 14)**:
+  - Pairs icon + label on all badges and controls (`🛡️ Shield`, `➕ Injection`, `🔄 Override`).
+  - **Shield**: "No changes to your roadmap" + differential reasoning.
+  - **Injection**: Mini-diagram preview displaying prerequisite connection (`insert_after`) and target advancement, with "Add to my roadmap" and "Dismiss" actions.
+  - **Override**: Swap comparison diagram showing old node replaced with new node, explicit reassurance that progress on the old node is preserved in Legacy view, with "Swap" and "Dismiss" actions.
+- **Post-Apply Navigation & Quickstart Offer**:
+  - On confirm apply, navigates to `/(app)/roadmap` with `highlight: new_node_id`.
+  - Roadmap screen highlights the changed node and surfaces a banner offering to open the 20-minute quickstart guide (`NodeDetailSheet`).
+- **Dismissed State Memory**:
+  - Dismissed verdicts are saved to `user_verdicts` (`state = 'dismissed'`) and remembered so users are not re-prompted for the same item.
+- **Analytics Events Emitted**:
+  - `red_button_tapped` (with `precomputed` boolean flag)
+  - `verdict_previewed`
+  - `verdict_confirmed`
+  - `verdict_dismissed`
+  - `daily_limit_hit`
+
+#### 2. Atomic Server-Side `apply-verdict` (`supabase/functions/apply-verdict/index.ts`, `supabase/migrations/20261122000005_apply_verdict_rpc.sql`)
+- **Server-Side Revalidation via `@repo/graph`**:
+  - Validates that new node is an approved canonical node in the domain.
+  - Revalidates DAG acyclicity via `applyInjection` / `applyOverride`.
+  - Rejects invalid or unapproved proposals and marks `user_verdicts.state = 'failed'`.
+- **Atomic Database Transaction (`apply_verdict_transaction` RPC)**:
+  - **Idempotency**: If `user_verdicts.state === 'applied'`, immediately returns `{ success: true, already_applied: true, mutated: false }` with zero duplicate mutations.
+  - **Shield**: Marks `user_verdicts.state = 'applied'`, leaves user nodes untouched (`mutated: false`).
+  - **Injection**: Inserts `user_nodes` row (`status = 'todo'`, `origin = 'injection'`, `fast_track = false`), increments `version`, marks `user_verdicts.state = 'applied'`.
+  - **Override**: Validates target node exists and is not archived; archives old node (`status = 'archived'`), preserving `completed_at` history and keeping dependent nodes unlocked; inserts new replacement node (`status = 'todo'`, `origin = 'override'`, `fast_track = true`, `replaced_node_id = target_node_id`); marks `user_verdicts.state = 'applied'`.
+  - **Atomic Rollback**: Any mid-transaction exception or database error rolls back all mutations completely, setting `user_verdicts.state = 'failed'`.
+
+#### 3. Verification & Test Suite
+- **172 unit & integration tests passing across 16 test suites (`pnpm test`)**:
+  - `supabase/functions/apply-verdict.test.ts` (6 tests):
+    - Shield path end to end: state marked 'applied', zero roadmap mutation.
+    - Injection path end to end: approved node inserted with origin='injection', status='todo', version bumped.
+    - Override path end to end: old node archived with completed_at history preserved, replacement inserted with fast_track=true.
+    - Rejection of unapproved node: revalidation fails and sets state='failed' without roadmap modification.
+    - Mid-transaction failure: atomic rollback leaves roadmap completely unchanged, sets state='failed'.
+    - Double-apply idempotency: second call returns already_applied=true with zero duplicate mutations.
+- **11 / 11 Playwright E2E tests passing (`pnpm test:e2e`)**:
+  - Red button preview, injection application, navigation to Roadmap tab, and quickstart offer tested end to end.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+- **Production web export (`pnpm web:export`)**: built cleanly in < 1s.
+
+---
+
+### Prompt 13: Quickstart Guides (Generation & Display)
+
+#### 1. Edge Function `generate-guide` (`supabase/functions/generate-guide/index.ts`, `format.ts`)
+- **Official Documentation Grounding & No-Source Path**:
+  - Validates `external_url` on the target canonical node.
+  - If no source is available, generation is halted immediately and the node is flagged for editorial review in `proposed_graph_changes` (`flag: 'MISSING_SOURCE_FOR_GUIDE'`).
+  - Fetches the official documentation / release notes URL and extracts clean readable text (stripping scripts, styles, HTML tags, and navigation headers).
+- **Enforced Guide Structure via Strict Schema (`@repo/schemas`)**:
+  - Enforces PRD Section 10.4 structure:
+    - **Goal**: Exactly 1 line (non-multiline, <= 200 characters).
+    - **Prerequisites**: Non-empty array of prerequisite skills/tools.
+    - **Steps**: Between 5 and 8 numbered steps with minute estimates summing to approximately 20 minutes (15 to 25 minutes).
+    - **Verify it worked**: Clear verification criteria with test/diff commands.
+    - **Common pitfalls**: 2 to 4 frequent errors and how to avoid them.
+    - **Source links**: Valid official documentation URLs.
+- **Node-Level Caching (Never Per User)**:
+  - Cached in `public.guides` by `node_id`.
+  - Re-invocations for the same canonical node return the cached guide with `cached: true` without redundant LLM calls.
+- **Automated Generation Triggers**:
+  - Automatically triggered when a node is proposed for injection or override in `compute-verdict` and `precompute-verdicts` (so draft guides exist before users need them).
+
+#### 2. Mobile & Web App Display (`apps/mobile-web/src/components/QuickstartGuideView.tsx`, `NodeDetailSheet.tsx`)
+- **Approved-Only Visibility Rule (PRD 10.4)**:
+  - Users see guides ONLY when `status = 'approved'`.
+  - Approved view renders:
+    - `✓ Last verified: <date>` badge.
+    - Single-line Goal callout.
+    - Prerequisites list.
+    - **Checkable Steps**: Interactive checkboxes per step, with progress persisted locally per user in `localStorage` without raw HTML.
+    - Formatted code snippets with monospace styling.
+    - "Verify it worked" section.
+    - "Common pitfalls" callouts.
+    - Clickable official source links.
+  - If a guide is not approved (or missing):
+    - Displays a "Guide in review" badge (`📖 In Review`) with friendly explanation.
+    - Renders an "Open Official Documentation ↗" link directly to the node's `external_url`.
+
+#### 3. Verification & Test Suite
+- **178 unit & integration tests passing across 18 test suites (`pnpm test`)**:
+  - `supabase/functions/generate-guide.test.ts` (3 tests):
+    - Structure validation: enforces 1-line goal, 5-8 steps, ~20 minute sum; rejects multi-line goals, too few/many steps, or mismatched durations.
+    - No-source path: halts generation and creates pending editor review flag in `proposed_graph_changes`.
+    - Generation & caching: creates draft guide from fixture HTML, stores with `status='draft'`, returns cached guide on second request.
+  - `apps/mobile-web/src/components/QuickstartGuideView.test.tsx` (3 tests):
+    - Approved-only visibility: shows "In Review" + docs link when status is draft.
+    - Approved rendering: displays "Last verified <date>", Goal, Prerequisites, Steps, Code snippets, Verification, Pitfalls, and Source links.
+    - Loading state: displays loading indicator.
+- **11 / 11 Playwright E2E tests passing (`pnpm test:e2e`)**.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+- **Production web export (`pnpm web:export`)**: built cleanly in 436ms.
+
+---
+
 ## Next
 
-### Prompt 12: Red Button UI and the apply flow
+### Prompt 14: Editorial Dashboard
 
-- Wire the Red Button end to end in `/apps/mobile-web`:
-  - Tap Red Button: fetch precomputed verdict (instant) or request on-demand analysis (show loading state & handle daily limit reached).
-  - Interactive preview modal:
-    - Shield: "No changes to your roadmap" + reasoning.
-    - Injection: mini-diagram showing new node and where it connects; "Add to my roadmap" / "Dismiss".
-    - Override: shows old node → new node, legacy retention explanation; "Swap" / "Dismiss".
-  - `apply-verdict` Edge Function: transactional mutation validating acyclic and approved node, applying injection/override, bumping version, setting `user_verdicts.state = 'applied'`.
-  - Navigate to Roadmap tab with highlight on changed node(s).
+#### 1. Architecture & Access Control
+- **Route Group Architecture (`Decision 6`)**:
+  - Implemented as `apps/mobile-web/app/(editor)` within the existing Expo web monorepo structure.
+  - Shares `@repo/graph`, `@repo/schemas`, design system, and Supabase client directly without duplicate infrastructure.
+- **Strict Role Enforcement (RLS + Server + UI)**:
+  - **Database Level**: PostgreSQL Row Level Security (RLS) on `proposed_graph_changes`, `guides` (writes), `canonical_nodes` (writes), `canonical_edges` (writes), and `user_roles` strictly checks `public.is_editor()`.
+  - **Server Edge Function (`supabase/functions/editorial-actions/index.ts`)**: Every mutation and queue read verifies `user_roles.role IN ('editor', 'admin')`. Non-editor callers receive HTTP 403 `FORBIDDEN_NOT_EDITOR`.
+  - **UI Route Layout (`apps/mobile-web/app/(editor)/_layout.tsx`)**: Queries `user_roles` on mount. Normal users see a clean "Access Denied: Role 'editor' required" screen detailing RLS enforcement and displaying terminal instructions (`pnpm grant-editor <email>`).
+- **Role Granting Script (`scripts/grant-editor.ts`)**:
+  - Admin CLI command `pnpm grant-editor <email>` queries `auth.users` with the service role key and upserts `role = 'editor'` into `public.user_roles`.
+
+#### 2. Editorial Queues & Operations
+- **Proposed Graph Changes Queue**:
+  - View full payload (proposed node slug, name, level, area, category, external URL, proposed edges, supersedes).
+  - Real-time cycle validation: checks `wouldCreateCycle` against current canonical edges.
+  - "Approve & Commit to Graph": writes node to `canonical_nodes(status='approved')`, inserts edges into `canonical_edges`, inserts supersedes into `node_supersedes`, and sets `proposed_graph_changes.status='approved'`.
+  - Refuses changes that would cause circular dependencies, returning `CYCLE_DETECTED` with zero mutations to the canonical graph.
+  - "Reject Change": marks proposed change as rejected.
+- **Draft Quickstart Guides Queue**:
+  - Lists all unapproved guides (`status != 'approved'`).
+  - Markdown editor for editing auto-generated steps, verification, pitfalls, and source links.
+  - "Approve Guide": updates `guides.status = 'approved'`, updates markdown, and sets `last_verified_at = now()`. Immediately unlocks user-facing guide display.
+- **Flagged Items Queue**:
+  - Monitors low-confidence verdicts (`confidence < 0.6`).
+  - Monitors failed news ingestion items (`status = 'ingested'` with error records).
+  - Monitors failed user verdicts (`state = 'failed'`).
+
+#### 3. Canonical Graph Browser & Editor
+- **Search & Filter**: Search canonical nodes by name or slug across areas (`ai-tools`, `editors-ides`, `frontend`, etc.).
+- **Field Editor with Diff Preview**: Edit node name, description, area, and external URL with diff computation via `computeNodeDiff`.
+- **Add Canonical Edge Tool**: Add directed prerequisite edges between canonical nodes with live cycle prevention (`wouldCreateCycle`).
+- **Add Supersedes Link Tool**: Connect deprecated tools to their modern replacements.
+
+#### 4. Golden-Set Manager (PRD Section 11.6 & Appendix B)
+- **Labeling Interface**: Form to attach expected verdicts (`shield` | `injection` | `override`) and expected new node slugs to news URLs and user profile fixtures.
+- **Appendix B Schema Enforcement**: Validated against `GoldenSetCaseSchema` in `@repo/schemas`.
+- **Saved into `/evals/golden/*.json`**: Persisted on disk for automated regression eval runners.
+
+#### 5. Verification & Test Suite
+- **197 unit & integration tests passing across 20 test files (`pnpm test`)**:
+  - `packages/graph/src/editorial.test.ts` (13 tests):
+    - `add_node`: approves valid new node, rejects missing slug/name, rejects duplicate slug, detects cycles if proposed edges loop back to ancestors.
+    - `add_edge`: accepts valid edge, rejects self-loops, refuses edge creating a cycle.
+    - `add_supersedes`: accepts valid supersedes relation, rejects self-supersedes.
+    - `computeNodeDiff`: computes field-level differences correctly.
+    - `GoldenSetCaseSchema`: validates PRD Appendix B format.
+  - `supabase/functions/editorial.test.ts` (6 tests):
+    - Role enforcement: non-editor gets 403 Forbidden; editor gets 200 OK.
+    - Cycle rejection on approve: refuses to approve change creating circular dependency and keeps canonical graph intact.
+    - Node approval makes it eligible for injection: verifies node is shielded before approval, and immediately produces an Injection in `decideVerdict` once approved.
+    - Draft guide approval: sets status approved and stamps `last_verified_at`.
+    - Golden-set manager: validates and writes golden case to `/evals/golden`.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+- **Production web export (`pnpm web:export`)**: built cleanly in 814ms.
+
+---
+
+## Next
+
+### Prompt 15: Golden-Set Evaluation Runner & Release Gate (PRD Appendix B)
+
+
 
 
 

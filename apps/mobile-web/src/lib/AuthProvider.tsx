@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
+    const inEditorGroup = segments[0] === '(editor)';
 
     if (!store.user) {
       // Signed out: must be in (auth) group
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Signed in
       const onboardingCompleted = store.profile?.onboarding_completed ?? false;
 
-      if (!onboardingCompleted) {
+      if (!onboardingCompleted && !inEditorGroup) {
         // Incomplete onboarding: route to onboarding placeholder
         if (!inOnboarding) {
           router.replace('/onboarding');

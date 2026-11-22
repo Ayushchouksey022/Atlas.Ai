@@ -17,6 +17,7 @@ import type {
   Roadmap,
   UserNode,
 } from '@repo/schemas';
+import { triggerGuideGeneration } from '../generate-guide/index';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -357,6 +358,14 @@ export async function handlePrecomputeVerdicts(
         }
 
         if (!verdictRecord) continue;
+
+        // Trigger automatic guide generation if proposed for injection/override (PRD 10.4)
+        if (
+          (verdictRecord.verdict === 'injection' || verdictRecord.verdict === 'override') &&
+          verdictRecord.new_node_id
+        ) {
+          void triggerGuideGeneration(supabase, verdictRecord.new_node_id, provider);
+        }
 
         // 7. Batch upsert user_verdicts for all users in this cohort
         for (const uid of cohort.userIds) {

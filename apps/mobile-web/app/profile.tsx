@@ -593,7 +593,17 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* 6. Sign Out */}
+        {/* 6. Editorial Dashboard (Web only) */}
+        <View style={[styles.section, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
+          <Button
+            testID="open-editorial-dashboard-button"
+            title="🛠️ Open Editorial Dashboard (Web)"
+            variant="outline"
+            onPress={() => router.push('/(editor)' as any)}
+          />
+        </View>
+
+        {/* 7. Sign Out */}
         <View style={[styles.section, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
           <Button
             testID="profile-signout-button"

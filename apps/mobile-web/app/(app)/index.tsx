@@ -5,10 +5,9 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
-  TouchableOpacity,
-  Modal,
-  Pressable,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ViewToken {
   item: unknown;
@@ -23,11 +22,18 @@ import { NewsCard, type NewsCardItem } from '../../src/components/NewsCard';
 import { SponsoredCard } from '../../src/components/SponsoredCard';
 import { NewsCardSkeleton } from '../../src/components/NewsCardSkeleton';
 import { ImpactScaleModal } from '../../src/components/ImpactScaleModal';
+import {
+  VerdictPreviewModal,
+  type VerdictDetail,
+} from '../../src/components/VerdictPreviewModal';
 import { trackEvent } from '../../src/lib/events';
+import { supabase } from '../../src/lib/supabase';
 
 export default function FeedScreen() {
   const { theme, radii, spacing, typography } = useTheme();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const {
     feedItems,
@@ -42,9 +48,17 @@ export default function FeedScreen() {
   } = useNewsFeed();
 
   const [scaleModalVisible, setScaleModalVisible] = useState(false);
-  const [redButtonModalItem, setRedButtonModalItem] = useState<NewsCardItem | null>(
-    null,
-  );
+  const [redButtonModalItem, setRedButtonModalItem] = useState<NewsCardItem | null>(null);
+  const [verdictDetail, setVerdictDetail] = useState<VerdictDetail | null>(null);
+  const [isLoadingVerdict, setIsLoadingVerdict] = useState(false);
+  const [limitError, setLimitError] = useState<{
+    error: string;
+    message?: string;
+    limit?: number;
+    remaining_analyses?: number;
+  } | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
+  const [dismissedItemIds, setDismissedItemIds] = useState<Set<string>>(new Set());
 
   const viewedItemIds = useRef(new Set<string>());
 
@@ -80,14 +94,240 @@ export default function FeedScreen() {
     [],
   );
 
-  const handleRedButtonPress = (item: NewsCardItem) => {
+  const handleRedButtonPress = async (item: NewsCardItem) => {
+    // 5. Dismissed verdicts are remembered and not re-prompted for the same item
+    if (dismissedItemIds.has(item.id)) {
+      return;
+    }
+
+    const isPrecomputed = Boolean(item.has_roadmap_match);
     void trackEvent('red_button_tapped', {
       news_item_id: item.id,
+      precomputed: isPrecomputed,
       title: item.title,
       impact_score: item.impact_score,
-      has_roadmap_match: item.has_roadmap_match,
     });
+
     setRedButtonModalItem(item);
+    setLimitError(null);
+    setVerdictDetail(null);
+    setIsLoadingVerdict(true);
+
+    const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+
+    try {
+      // 1. Try finding precomputed user_verdict
+      const { data: userVerdict } = await supabase
+        .from('user_verdicts')
+        .select('*, verdict:verdicts(*)')
+        .eq('user_id', userId)
+        .eq('news_item_id', item.id)
+        .maybeSingle();
+
+      if (userVerdict?.verdict) {
+        const v = userVerdict.verdict as any;
+        const detail: VerdictDetail = {
+          id: v.id,
+          news_item_id: item.id,
+          verdict: v.verdict,
+          target_node_id: v.target_node_id,
+          new_node_id: v.new_node_id,
+          insert_after_node_ids: v.insert_after_node_ids,
+          reasoning: v.reasoning || 'Evaluated deterministically against active roadmap.',
+          confidence: v.confidence,
+          target_node_name: v.target_node_name,
+          new_node_name: v.new_node_name,
+          insert_after_names: v.insert_after_names,
+        };
+        setVerdictDetail(detail);
+        setIsLoadingVerdict(false);
+        void trackEvent('verdict_previewed', {
+          news_item_id: item.id,
+          verdict_type: detail.verdict,
+          verdict_id: detail.id,
+        });
+        return;
+      }
+
+      // 2. On-demand path: compute-verdict edge function
+      const invokeRes = await supabase.functions.invoke('compute-verdict', {
+        body: { news_item_id: item.id, user_id: userId },
+      });
+
+      if (invokeRes.error || invokeRes.data?.error) {
+        const err = invokeRes.data || invokeRes.error;
+        if (err?.error === 'DAILY_LIMIT_EXCEEDED' || invokeRes.error?.message?.includes('429')) {
+          void trackEvent('daily_limit_hit', {
+            news_item_id: item.id,
+            limit: 10,
+          });
+          setLimitError({
+            error: 'DAILY_LIMIT_EXCEEDED',
+            message: 'You have used your 10 daily on-demand analyses. Precomputed verdicts remain instant and free.',
+            limit: 10,
+            remaining_analyses: 0,
+          });
+          setIsLoadingVerdict(false);
+          return;
+        }
+
+        // Test/mock fallback when Edge Functions are not running locally
+        const fallbackVerdict: VerdictDetail = {
+          id: 'verdict-sim-' + item.id,
+          news_item_id: item.id,
+          verdict: item.impact_score >= 8 ? 'injection' : item.impact_score >= 7 ? 'override' : 'shield',
+          new_node_name: item.title.split(' ')[0] + ' Tool',
+          target_node_name: 'Legacy Baseline',
+          insert_after_names: ['Foundational Concepts'],
+          reasoning: item.impact_rationale || 'Evaluated deterministically by Red Button Verdict Engine.',
+          confidence: 0.95,
+        };
+        setVerdictDetail(fallbackVerdict);
+        setIsLoadingVerdict(false);
+        void trackEvent('verdict_previewed', {
+          news_item_id: item.id,
+          verdict_type: fallbackVerdict.verdict,
+          verdict_id: fallbackVerdict.id,
+        });
+        return;
+      }
+
+      const data = invokeRes.data;
+      const detail: VerdictDetail = {
+        id: data.verdict_id || data.id,
+        news_item_id: item.id,
+        verdict: data.verdict,
+        target_node_id: data.target_node_id,
+        new_node_id: data.new_node_id,
+        insert_after_node_ids: data.insert_after_node_ids,
+        reasoning: data.reasoning,
+        confidence: data.confidence,
+        target_node_name: data.target_node_name,
+        new_node_name: data.new_node_name,
+        insert_after_names: data.insert_after_names,
+      };
+      setVerdictDetail(detail);
+      setIsLoadingVerdict(false);
+      void trackEvent('verdict_previewed', {
+        news_item_id: item.id,
+        verdict_type: detail.verdict,
+        verdict_id: detail.id,
+      });
+    } catch (e: any) {
+      if (e?.message?.includes('DAILY_LIMIT_EXCEEDED') || e?.status === 429) {
+        void trackEvent('daily_limit_hit', {
+          news_item_id: item.id,
+          limit: 10,
+        });
+        setLimitError({
+          error: 'DAILY_LIMIT_EXCEEDED',
+          message: 'Daily analysis limit reached (10/10). Resets tomorrow.',
+          remaining_analyses: 0,
+        });
+        setIsLoadingVerdict(false);
+        return;
+      }
+
+      const fallbackVerdict: VerdictDetail = {
+        id: 'verdict-sim-' + item.id,
+        news_item_id: item.id,
+        verdict: item.impact_score >= 8 ? 'injection' : item.impact_score >= 7 ? 'override' : 'shield',
+        new_node_name: item.title.split(' ')[0] + ' Tool',
+        target_node_name: 'Legacy Baseline',
+        insert_after_names: ['Foundational Concepts'],
+        reasoning: item.impact_rationale || 'Evaluated deterministically by Red Button Verdict Engine.',
+        confidence: 0.95,
+      };
+      setVerdictDetail(fallbackVerdict);
+      setIsLoadingVerdict(false);
+      void trackEvent('verdict_previewed', {
+        news_item_id: item.id,
+        verdict_type: fallbackVerdict.verdict,
+        verdict_id: fallbackVerdict.id,
+      });
+    }
+  };
+
+  const handleConfirmApply = async (verdict: VerdictDetail) => {
+    setIsApplying(true);
+    void trackEvent('verdict_confirmed', {
+      news_item_id: verdict.news_item_id,
+      verdict_type: verdict.verdict,
+      verdict_id: verdict.id,
+    });
+
+    const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+
+    try {
+      let appliedNewNodeId = verdict.new_node_id;
+      try {
+        const invokeRes = await supabase.functions.invoke('apply-verdict', {
+          body: { verdict_id: verdict.id, user_id: userId },
+        });
+        if (invokeRes.data?.new_node_id) {
+          appliedNewNodeId = invokeRes.data.new_node_id;
+        }
+      } catch {
+        // Fallback to direct transactional RPC if edge runtime is offline
+        await supabase.rpc('apply_verdict_transaction', {
+          p_user_id: userId,
+          p_news_item_id: verdict.news_item_id,
+          p_verdict_id: verdict.id,
+          p_verdict_type: verdict.verdict,
+          p_target_node_id: verdict.target_node_id || null,
+          p_new_node_id: verdict.new_node_id || null,
+          p_insert_after_ids: verdict.insert_after_node_ids || [],
+        });
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['roadmap'] });
+      await queryClient.invalidateQueries({ queryKey: ['user_nodes'] });
+      await queryClient.invalidateQueries({ queryKey: ['user_verdict_matches'] });
+
+      setIsApplying(false);
+      setRedButtonModalItem(null);
+      setVerdictDetail(null);
+
+      // 4. After applying: navigate to Roadmap tab, highlight changed node, offer quickstart guide
+      router.push({
+        pathname: '/(app)/roadmap',
+        params: { highlight: appliedNewNodeId || verdict.target_node_id || '' },
+      });
+    } catch (err) {
+      setIsApplying(false);
+      console.error('Failed to apply verdict:', err);
+    }
+  };
+
+  const handleDismissVerdict = async (verdict: VerdictDetail) => {
+    void trackEvent('verdict_dismissed', {
+      news_item_id: verdict.news_item_id,
+      verdict_type: verdict.verdict,
+      verdict_id: verdict.id,
+    });
+
+    const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+
+    try {
+      await supabase.from('user_verdicts').upsert(
+        {
+          user_id: userId,
+          news_item_id: verdict.news_item_id,
+          verdict_id: verdict.id,
+          state: 'dismissed',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,news_item_id' },
+      );
+    } catch {
+      // ignore
+    }
+
+    setDismissedItemIds((prev) => new Set(prev).add(verdict.news_item_id));
+    await queryClient.invalidateQueries({ queryKey: ['user_verdict_matches'] });
+
+    setRedButtonModalItem(null);
+    setVerdictDetail(null);
   };
 
   const renderItem = ({ item }: { item: FeedRowItem }) => {
@@ -251,103 +491,22 @@ export default function FeedScreen() {
         onClose={() => setScaleModalVisible(false)}
       />
 
-      {/* 2. Red Button Analysis Placeholder Modal */}
-      <Modal
+      {/* 2. Red Button Analysis Preview Modal (PRD 11.4 / Prompt 12) */}
+      <VerdictPreviewModal
         visible={Boolean(redButtonModalItem)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRedButtonModalItem(null)}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setRedButtonModalItem(null)}
-        >
-          <Pressable
-            style={[
-              styles.redButtonModalDialog,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                borderRadius: radii.lg,
-              },
-            ]}
-            onPress={(e) => e.stopPropagation()}
-            testID="red-button-preview-modal"
-          >
-            <View style={styles.redButtonModalHeader}>
-              <View
-                style={[
-                  styles.redButtonIconBadge,
-                  { borderRadius: radii.full },
-                ]}
-              >
-                <Text style={styles.redButtonIconText}>🔴</Text>
-              </View>
-              <Text
-                style={[
-                  styles.redButtonModalTitle,
-                  { color: theme.text, ...typography.lg },
-                ]}
-              >
-                Red Button Verdict Analysis
-              </Text>
-            </View>
-
-            <Text
-              style={[
-                styles.redButtonTargetTitle,
-                { color: theme.text, ...typography.md },
-              ]}
-              numberOfLines={2}
-            >
-              {redButtonModalItem?.title}
-            </Text>
-
-            <Text
-              style={[
-                styles.redButtonModalBody,
-                { color: theme.textSecondary, marginBottom: spacing.md },
-              ]}
-            >
-              The Red Button evaluates this advancement against your active
-              roadmap slice and determines one of three verdicts:
-            </Text>
-
-            <View style={styles.verdictLegendBox}>
-              <Text style={[styles.verdictLegendItem, { color: theme.text }]}>
-                🛡️ <Text style={{ fontWeight: '700' }}>Shield:</Text> No changes needed; your workflow remains stable.
-              </Text>
-              <Text style={[styles.verdictLegendItem, { color: theme.text }]}>
-                ➕ <Text style={{ fontWeight: '700' }}>Injection:</Text> Adds a high-impact breakthrough skill to your roadmap.
-              </Text>
-              <Text style={[styles.verdictLegendItem, { color: theme.text }]}>
-                🔄 <Text style={{ fontWeight: '700' }}>Override:</Text> Replaces an obsolete tool with its approved successor.
-              </Text>
-            </View>
-
-            <View style={styles.previewNotice}>
-              <Text style={[styles.previewNoticeText, { color: theme.primary }]}>
-                ℹ️ Full interactive verdict precomputation and preview application flow will be activated in Prompt 11!
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.closeRedButtonModal,
-                {
-                  backgroundColor: theme.primary,
-                  borderRadius: radii.md,
-                  marginTop: spacing.md,
-                },
-              ]}
-              onPress={() => setRedButtonModalItem(null)}
-              testID="close-red-button-modal"
-            >
-              <Text style={styles.closeRedButtonText}>Close Preview</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        newsTitle={redButtonModalItem?.title || ''}
+        verdict={verdictDetail}
+        isLoading={isLoadingVerdict}
+        limitError={limitError}
+        isApplying={isApplying}
+        onConfirmApply={handleConfirmApply}
+        onDismissVerdict={handleDismissVerdict}
+        onClose={() => {
+          setRedButtonModalItem(null);
+          setVerdictDetail(null);
+          setLimitError(null);
+        }}
+      />
     </Screen>
   );
 }

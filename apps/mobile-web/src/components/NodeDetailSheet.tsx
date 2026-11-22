@@ -9,9 +9,12 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import { Badge, Button, useTheme } from '../design-system';
 import type { EnrichedRoadmapNode } from '../lib/graphLayout';
 import { canTransitionToStatus } from '../lib/roadmapRules';
+import { supabase } from '../lib/supabase';
+import { QuickstartGuideView, type GuideData } from './QuickstartGuideView';
 
 export interface NodeDetailSheetProps {
   node: EnrichedRoadmapNode | null;
@@ -33,6 +36,28 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
   const { theme, spacing, typography, radii, minTouchTarget } = useTheme();
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Fetch quickstart guide for this canonical node (cached in TanStack Query)
+  const { data: guide, isLoading: isLoadingGuide } = useQuery<GuideData | null>({
+    queryKey: ['node_guide', node?.id],
+    queryFn: async () => {
+      if (!node?.id) return null;
+      try {
+        const { data, error } = await supabase
+          .from('guides')
+          .select('*')
+          .eq('node_id', node.id)
+          .maybeSingle();
+
+        if (error || !data) return null;
+        return data as unknown as GuideData;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(node?.id),
+    staleTime: 60 * 1000,
+  });
 
   if (!node) return null;
 
@@ -258,25 +283,14 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
               )}
             </View>
 
-            {/* Quickstart Guide Placeholder (Prompt 8) */}
-            <View style={[styles.guideBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
-              <Text style={[styles.guideTitle, { color: theme.text }]}>
-                📖 20-Minute Quickstart Guide
-              </Text>
-              <Text style={[styles.guideText, { color: theme.textSecondary }]}>
-                Curated step-by-step interactive instructions will be published here in the Editorial update.
-              </Text>
-              {node.external_url ? (
-                <TouchableOpacity
-                  onPress={() => Linking.openURL(node.external_url!)}
-                  style={{ marginTop: spacing.sm }}
-                >
-                  <Text style={[styles.linkText, { color: theme.primary }]}>
-                    View Official Documentation ↗
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            {/* 20-Minute Quickstart Guide (Prompt 13 / PRD 10.4) */}
+            <QuickstartGuideView
+              nodeId={node.id}
+              nodeName={node.name}
+              externalUrl={node.external_url}
+              guide={guide}
+              isLoading={isLoadingGuide}
+            />
           </ScrollView>
         </View>
       </View>

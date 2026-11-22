@@ -17,6 +17,7 @@ import type {
 } from '@repo/schemas';
 
 export * from './cycle';
+export * from './editorial';
 import {
   buildAdj,
   buildRevAdj,

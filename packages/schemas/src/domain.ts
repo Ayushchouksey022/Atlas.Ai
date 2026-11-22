@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Database } from './database.types';
 import {
   NodeTypeSchema,
   NodeStatusSchema,
@@ -228,14 +229,32 @@ export const GuideStepSchema = z.object({
 });
 export type GuideStep = z.infer<typeof GuideStepSchema>;
 
-export const QuickstartGuideOutputSchema = z.object({
-  goal: z.string().min(1).max(200), // 1 line
-  prerequisites: z.array(z.string()),
-  steps: z.array(GuideStepSchema).min(3).max(10), // 5-8 typical numbered steps
-  verification: z.string().min(1), // Verify it worked
-  common_pitfalls: z.array(z.string()),
-  source_links: z.array(z.string().url()),
-});
+export const QuickstartGuideOutputSchema = z
+  .object({
+    goal: z
+      .string()
+      .min(1)
+      .max(200)
+      .refine((g) => !g.includes('\n'), { message: 'Goal must be a single line' }),
+    prerequisites: z.array(z.string().min(1)).min(1),
+    steps: z
+      .array(GuideStepSchema)
+      .min(5, { message: 'Guide must have between 5 and 8 numbered steps' })
+      .max(8, { message: 'Guide must have between 5 and 8 numbered steps' }),
+    verification: z.string().min(1),
+    common_pitfalls: z.array(z.string().min(1)).min(1),
+    source_links: z.array(z.string().url()).min(1),
+  })
+  .refine(
+    (data) => {
+      const totalMinutes = data.steps.reduce((sum, s) => sum + s.estimated_minutes, 0);
+      return totalMinutes >= 15 && totalMinutes <= 25;
+    },
+    {
+      message:
+        'Total estimated minutes for all steps must sum to approximately 20 minutes (15-25 minutes).',
+    },
+  );
 export type QuickstartGuideOutput = z.infer<typeof QuickstartGuideOutputSchema>;
 
 /** Personalization Annotation (Task 6): Per-node tips based on experience level */
@@ -300,5 +319,23 @@ export const NewsItemSchema = z.object({
   updated_at: z.string().optional(),
 });
 export type NewsItem = z.infer<typeof NewsItemSchema>;
+
+// ---------------------------------------------------------------------------
+// Golden Evaluation Set Schema — PRD Section 11.6 & Appendix B
+// ---------------------------------------------------------------------------
+
+export const GoldenSetCaseSchema = z.object({
+  news_url: z.string().url(),
+  user_profile_fixture: z.string().min(1),
+  expected_verdict: z.enum(['shield', 'injection', 'override']),
+  expected_new_node_slug: z.string().nullable().optional(),
+  notes: z.string().min(1),
+});
+export type GoldenSetCase = z.infer<typeof GoldenSetCaseSchema>;
+
+export type ProposedGraphChange = Database['public']['Tables']['proposed_graph_changes']['Row'];
+export type Guide = Database['public']['Tables']['guides']['Row'];
+
+
 
 

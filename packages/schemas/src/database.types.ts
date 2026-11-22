@@ -723,6 +723,18 @@ export interface Database {
         };
         Returns: void;
       };
+      apply_verdict_transaction: {
+        Args: {
+          p_user_id: string;
+          p_news_item_id: string;
+          p_verdict_id: string;
+          p_verdict_type: string;
+          p_target_node_id?: string | null;
+          p_new_node_id?: string | null;
+          p_insert_after_ids?: string[];
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       node_type: 'skill' | 'tool' | 'workflow';

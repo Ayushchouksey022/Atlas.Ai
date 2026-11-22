@@ -35,3 +35,13 @@
   1. **Atomicity & Consistency:** A database trigger executes within the signup transaction. If the user creates an account, their `public.profiles` row is guaranteed to exist immediately with `onboarding_completed: false`.
   2. **Security & Tamper Resistance:** Client-side creation requires opening INSERT permissions on `public.profiles` to `authenticated` users without strict validation of initial fields, risking arbitrary client writes. A trigger runs as `security definer` with controlled defaults.
   3. **Fault Tolerance:** If a user closes the browser or loses network immediately after `supabase.auth.signUp()`, a client-side call could fail, leaving an orphaned auth user with no profile. The database trigger guarantees zero orphaned auth users.
+
+### 6. Editorial Dashboard Architecture: Route Group in Mobile-Web vs Separate App
+
+- **Date:** 2026-11-22
+- **Decision:** Implement the Editorial Dashboard as an Expo Router route group `(editor)` within `/apps/mobile-web` rather than a standalone `/apps/editor` application.
+- **Rationale:**
+  1. **Unified Infrastructure & Tooling:** Eliminates redundant monorepo app scaffolding, separate Metro bundlers, duplicated build steps, and dual hosting pipelines.
+  2. **Security & Access Control:** Enforces strict access control at both the route boundary (`(editor)/_layout.tsx` checks `user_roles.role = 'editor'`) and the database layer (Supabase RLS strictly rejects non-editor writes via `public.is_editor()`). Normal users cannot read or mutate editorial queues.
+  3. **Code Reuse:** Directly leverages the shared Design System, `@repo/graph` cycle validation algorithms, `@repo/schemas` types, and TanStack Query cache.
+  4. **Responsive Desktop-First Layout:** Designed for desktop web viewports with multi-column table layouts, side-by-side markdown editors, and diff modal reviews.
