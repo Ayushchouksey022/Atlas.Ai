@@ -1,0 +1,7 @@
+{
+  "news_url": "https://prettier.io.example.com/blog/2026/04/prettier-3-4-svelte-patch",
+  "user_profile_fixture": "fullstack-web-dev",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Low impact library update (impact 3/10 < 6). Prettier 3.4 Svelte formatting tweak is backward-compatible and does not obsolete Prettier."
+}

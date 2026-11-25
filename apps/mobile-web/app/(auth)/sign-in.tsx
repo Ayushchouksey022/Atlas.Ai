@@ -7,7 +7,7 @@ import { useAuth } from '../../src/lib/AuthProvider';
 export default function SignInScreen() {
   const { theme, spacing, typography } = useTheme();
   const router = useRouter();
-  const { signInWithPassword, signInWithGoogle, isLoading, error } = useAuth();
+  const { signInWithPassword, signInWithGoogle, signInAsDemoUser, isLoading, error } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,6 +91,17 @@ export default function SignInScreen() {
           title="Continue with Google"
           variant="outline"
           onPress={handleGoogleSignIn}
+        />
+
+        <Button
+          testID="demo-signin-button"
+          title="⚡ Quick Demo Sign In (Offline Preview)"
+          variant="secondary"
+          onPress={async () => {
+            setLocalError(null);
+            await signInAsDemoUser(email ? email.trim() : 'en24cs3010287@medicaps.ac.in');
+          }}
+          style={{ marginTop: spacing.md }}
         />
 
         <View style={styles.footerRow}>

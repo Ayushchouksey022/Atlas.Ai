@@ -1,0 +1,7 @@
+{
+  "news_url": "https://embedded.example.com/releases/rust-rtos-copilot",
+  "user_profile_fixture": "fullstack-web-dev",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Domain mismatch: Embedded Rust RTOS assistant targets bare-metal microcontroller systems, completely outside the web developer's active stack."
+}

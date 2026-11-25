@@ -6,3 +6,4 @@ export * from './providers/base';
 export * from './providers/openai';
 export * from './providers/mock';
 export * from './factory';
+export * from './evals/types';

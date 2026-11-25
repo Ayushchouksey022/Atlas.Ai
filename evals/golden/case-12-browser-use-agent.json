@@ -1,0 +1,7 @@
+{
+  "news_url": "https://browser-use.com.example.com/browser-use-agentic-web-automation",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "injection",
+  "expected_new_node_slug": "browser-use",
+  "notes": "High impact autonomous web automation tool (impact 8/10). User has terminal and JS prerequisites, tool is approved canonical node, not yet in roadmap."
+}

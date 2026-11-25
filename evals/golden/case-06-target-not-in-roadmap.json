@@ -1,0 +1,7 @@
+{
+  "news_url": "https://codeium.example.com/windsurf-ide-overrides-everything",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Target node not in roadmap: The news item discusses migrating from Windsurf to Cursor, but the user does not have Windsurf in their roadmap."
+}

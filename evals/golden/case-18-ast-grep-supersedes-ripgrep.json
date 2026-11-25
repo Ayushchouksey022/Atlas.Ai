@@ -1,0 +1,7 @@
+{
+  "news_url": "https://ast-grep.github.io.example.com/ast-grep-supersedes-ripgrep-refactoring",
+  "user_profile_fixture": "search-refactor-dev",
+  "expected_verdict": "override",
+  "expected_new_node_slug": "ast-grep",
+  "notes": "Legitimate supersedes: Approved node_supersedes link links ripgrep to ast-grep. User has completed ripgrep in roadmap, superseded by structural search ast-grep."
+}

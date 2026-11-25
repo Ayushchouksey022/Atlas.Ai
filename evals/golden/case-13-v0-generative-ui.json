@@ -1,0 +1,7 @@
+{
+  "news_url": "https://vercel.com.example.com/blog/v0-generative-ui-production",
+  "user_profile_fixture": "junior-frontend-dev",
+  "expected_verdict": "injection",
+  "expected_new_node_slug": "v0-dev",
+  "notes": "High impact frontend generative tool (impact 8/10). User has basic JS/HTML prerequisites and v0-dev provides breakthrough prototyping acceleration."
+}

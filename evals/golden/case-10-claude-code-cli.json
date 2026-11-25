@@ -1,0 +1,7 @@
+{
+  "news_url": "https://anthropic.com.example.com/news/claude-code-terminal-agent",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "injection",
+  "expected_new_node_slug": "claude-code",
+  "notes": "Major new tool release (impact 9/10). Claude Code is an approved canonical tool, domain matches, and user possesses terminal and git prerequisites."
+}

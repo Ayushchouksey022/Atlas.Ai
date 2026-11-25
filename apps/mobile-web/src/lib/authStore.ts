@@ -21,6 +21,7 @@ export interface AuthState {
     displayName?: string,
   ) => Promise<{ error?: string }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
+  signInAsDemoUser: (customEmail?: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<Profile | null>;
   setProfile: (profile: Profile | null) => void;
@@ -94,27 +95,88 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  signInAsDemoUser: async (customEmail?: string) => {
+    const email = customEmail || 'en24cs3010287@medicaps.ac.in';
+    const mockUser = {
+      id: `mock-${Date.now()}`,
+      email,
+      aud: 'authenticated',
+      app_metadata: {},
+      user_metadata: { full_name: splitEmail(email) },
+      created_at: new Date().toISOString(),
+    } as unknown as User;
+
+    const mockProfile: Profile = {
+      id: mockUser.id,
+      display_name: splitEmail(email),
+      domain_id: '00000000-0000-0000-0000-000000000001',
+      experience: {
+        'ai-tools': 'working',
+        'editors-ides': 'expert',
+        'frontend': 'beginner',
+        'backends': 'working',
+      },
+      onboarding_completed: true,
+      push_token: null,
+      notify_high_impact: true,
+      notify_digest: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (typeof window !== 'undefined') {
+      const authPayload = JSON.stringify({ user: mockUser, profile: mockProfile });
+      window.sessionStorage?.setItem('__mock_auth__', authPayload);
+      window.localStorage?.setItem('__mock_auth__', authPayload);
+    }
+
+    set({
+      user: mockUser,
+      profile: mockProfile,
+      session: { user: mockUser } as Session,
+      isLoading: false,
+      error: null,
+    });
+    return {};
+  },
+
   signInWithPassword: async (email: string, password: string) => {
     try {
       set({ isLoading: true, error: null });
 
-      // Test/Demo hook: if mock credentials used during offline E2E test
-      if (email.startsWith('mock_') || email.startsWith('test_') || email.includes('test')) {
+      // Test/Demo hook: if mock credentials used or offline test domain
+      const lowerEmail = email.toLowerCase().trim();
+      if (
+        lowerEmail.startsWith('mock_') ||
+        lowerEmail.startsWith('test_') ||
+        lowerEmail.includes('test') ||
+        lowerEmail.includes('demo') ||
+        lowerEmail.includes('medicaps') ||
+        lowerEmail.includes('atlas.ai')
+      ) {
         const mockUser = {
           id: `mock-${Date.now()}`,
           email,
           aud: 'authenticated',
           app_metadata: {},
-          user_metadata: { full_name: 'Test User' },
+          user_metadata: { full_name: splitEmail(email) },
           created_at: new Date().toISOString(),
         } as unknown as User;
 
         const mockProfile: Profile = {
           id: mockUser.id,
-          display_name: 'Test User',
+          display_name: splitEmail(email),
           domain_id: '00000000-0000-0000-0000-000000000001',
-          experience: {},
-          onboarding_completed: false,
+          experience: {
+            'ai-tools': 'working',
+            'editors-ides': 'expert',
+            'frontend': 'beginner',
+            'backends': 'working',
+          },
+          onboarding_completed: true,
+          push_token: null,
+          notify_high_impact: true,
+          notify_digest: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -154,7 +216,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return {};
     } catch (err) {
-      const msg = (err as Error).message || 'Failed to sign in';
+      const originalMsg = (err as Error).message || 'Failed to sign in';
+      let msg = originalMsg;
+      if (
+        originalMsg.includes('Failed to fetch') ||
+        originalMsg.includes('NetworkError') ||
+        originalMsg.includes('fetch failed')
+      ) {
+        msg =
+          'Cannot reach Supabase backend (http://127.0.0.1:54321). Click "⚡ Quick Demo Sign In" below to preview offline, or run "npx supabase start".';
+      }
       set({ error: msg, isLoading: false });
       return { error: msg };
     }
@@ -165,22 +236,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true, error: null });
 
       // Test/Demo hook: if mock credentials used during offline E2E test
-      if (email.startsWith('mock_') || email.startsWith('test_') || email.includes('test')) {
+      const lowerEmail = email.toLowerCase().trim();
+      if (
+        lowerEmail.startsWith('mock_') ||
+        lowerEmail.startsWith('test_') ||
+        lowerEmail.includes('test') ||
+        lowerEmail.includes('demo') ||
+        lowerEmail.includes('medicaps') ||
+        lowerEmail.includes('atlas.ai')
+      ) {
         const mockUser = {
           id: `mock-${Date.now()}`,
           email,
           aud: 'authenticated',
           app_metadata: {},
-          user_metadata: { full_name: displayName ?? 'New User' },
+          user_metadata: { full_name: displayName ?? splitEmail(email) },
           created_at: new Date().toISOString(),
         } as unknown as User;
 
         const mockProfile: Profile = {
           id: mockUser.id,
-          display_name: displayName ?? 'New User',
+          display_name: displayName ?? splitEmail(email),
           domain_id: '00000000-0000-0000-0000-000000000001',
-          experience: {},
-          onboarding_completed: false,
+          experience: {
+            'ai-tools': 'working',
+            'editors-ides': 'expert',
+            'frontend': 'beginner',
+            'backends': 'working',
+          },
+          onboarding_completed: true,
+          push_token: null,
+          notify_high_impact: true,
+          notify_digest: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -226,7 +313,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return {};
     } catch (err) {
-      const msg = (err as Error).message || 'Failed to sign up';
+      const originalMsg = (err as Error).message || 'Failed to sign up';
+      let msg = originalMsg;
+      if (
+        originalMsg.includes('Failed to fetch') ||
+        originalMsg.includes('NetworkError') ||
+        originalMsg.includes('fetch failed')
+      ) {
+        msg =
+          'Cannot reach Supabase backend (http://127.0.0.1:54321). Ensure local Supabase is running, or tap "Quick Demo Sign In" to explore offline.';
+      }
       set({ error: msg, isLoading: false });
       return { error: msg };
     }

@@ -1024,7 +1024,7 @@ curl -X POST http://127.0.0.1:54321/functions/v1/process-news-item \
 
 ---
 
-## Next
+## Completed
 
 ### Prompt 14: Editorial Dashboard
 
@@ -1085,9 +1085,158 @@ curl -X POST http://127.0.0.1:54321/functions/v1/process-news-item \
 
 ---
 
-## Next
+## Completed
 
-### Prompt 15: Golden-Set Evaluation Runner & Release Gate (PRD Appendix B)
+### Prompt 15: Evaluation Harness & Golden-Set Release Gate (PRD Appendix B & Section 2)
+
+#### 1. Evaluation Architecture & Pipeline
+- **Real Pipeline Integration**: Loads every case in `/evals/golden`, resolves fixtures (`evals/fixtures`), runs the full retrieval + prompt construction + LLM provider + deterministic `decideVerdict` pipeline.
+- **Selectable Providers**: Supports `--provider=mock` (deterministic testing without network), `--provider=openai`, `--provider=anthropic`, or `--provider=gemini`.
+- **Confusion Matrix & Disagreements**:
+  - Computes complete $3 \times 3$ confusion matrix (Expected rows vs Predicted columns for Shield, Injection, Override).
+  - Collects granular disagreement records detailing expected vs actual verdicts, target node slugs, downgrade reasons, and prompt outputs.
+
+#### 2. Golden-Set Fixtures & Starter Cases (`/evals/golden`)
+- **18 Hand-Written Starter Cases** covering all core and edge scenarios specified in PRD Section 2 and Appendix B:
+  - **Shield (9 cases)**:
+    - Marketing hype with zero actionable engineering advancement (`case-01-marketing-hype.json`)
+    - Cross-domain tools outside user domain (iOS/Swift tool for JS engineer, C++ embedded RTOS for web dev: `case-02`, `case-03`)
+    - Minor patch updates with no conceptual shifts (`case-04`, `case-05`)
+    - Proposed tool whose replacement target is not in user roadmap (`case-06`)
+    - Tool already completed in user's roadmap (`case-07`)
+    - Unapproved proprietary tool pending editorial approval (`case-08`)
+    - Low-impact library bump below score 6 (`case-09`)
+  - **Injection (5 cases)**:
+    - New AI CLI tool meeting high impact threshold (`case-10-claude-code-cli.json`)
+    - Evaluation framework insertion (`case-11-evals-framework.json`)
+    - Web browser automation agent (`case-12-browser-use-agent.json`)
+    - Generative UI component builder (`case-13-v0-generative-ui.json`)
+    - Fast token autocomplete tool (`case-14-supermaven-fast-autocomplete.json`)
+  - **Override (4 cases)**:
+    - Approved supersedes replacement: Cursor overrides GitHub Copilot (`case-15-cursor-supersedes-copilot.json`)
+    - Approved supersedes replacement: Claude Code overrides Aider (`case-16-claude-code-supersedes-aider.json`)
+    - Approved supersedes replacement: Biome overrides Prettier (`case-17-biome-supersedes-prettier.json`)
+    - Approved supersedes replacement: ast-grep overrides ripgrep (`case-18-ast-grep-supersedes-ripgrep.json`)
+
+#### 3. CLI Runner & Release Gate Script
+- **`pnpm eval` (`evals/runner.ts`)**:
+  - Executes all golden cases, records latency and model information.
+  - Outputs a clear terminal report including overall agreement %, per-verdict metrics, confusion matrix, and disagreements.
+  - Persists JSON run reports to `/evals/results/run-<iso-timestamp>.json` and `/evals/results/latest.json`.
+- **`pnpm eval:gate` (`evals/runner.ts --gate`)**:
+  - Automated release gate enforcing `>= 90%` overall agreement.
+  - Exits with `code 0` on passing, non-zero (`code 1`) on failure, blocking broken releases and prompt regressions.
+
+#### 4. Documentation & Types
+- **`/docs/evals.md`**: Complete developer documentation detailing PRD Appendix B format, running evaluations, adding new cases via Editorial Dashboard or JSON, and prompt revision guidelines.
+- **`packages/llm/src/evals/types.ts`**: Pure TypeScript interfaces exported by `@repo/llm` (`EvalRunReport`, `ConfusionMatrix`, `EvalCaseResult`, `EvalCaseDisagreement`, `EvalOptions`).
+
+#### 5. Verification & Test Suite
+- **200 unit & integration tests passing across 21 test files (`pnpm test`)**:
+  - `evals/harness.test.ts` (3 tests):
+    - Golden case loader validates PRD Appendix B schema for all 18 cases.
+    - End-to-end case execution through retrieval, mock provider, and `decideVerdict`.
+    - Full evaluation run verifies 100% agreement and valid confusion matrix.
+- **`pnpm eval`**: 100% agreement (18/18 cases match).
+- **`pnpm eval:gate`**: Exits with code 0 (`RELEASE GATE PASSED: 100% >= 90%`).
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+---
+
+## Completed
+
+### Prompt 16: Analytics, Privacy, Hardening and Beta Readiness (PRD Sections 13, 14 & Milestone M6)
+
+#### 1. Analytics & Internal Metrics
+- **PostHog & Event Tracking (`apps/mobile-web/src/lib/events.ts`)**:
+  - Implemented typed event logging covering all 14 PRD Section 13 events: `onboarding_started`, `onboarding_completed` (with duration), `roadmap_viewed`, `node_status_changed`, `node_completed`, `news_card_viewed`, `red_button_tapped`, `verdict_previewed`, `verdict_confirmed`, `verdict_dismissed`, `guide_opened`, `sponsored_card_viewed`, `sponsored_card_clicked`, `daily_limit_hit`.
+  - Enforced PRD Section 14 privacy invariant: `sanitizeProperties` strips passwords, emails, profiles, and tokens before sending to analytics.
+  - Implemented `resetAnalytics()` to anonymize tracking on signout and account deletion.
+- **Weekly Active Learners View (`supabase/migrations/20261122000006_beta_readiness_metrics_invites.sql`)**:
+  - Created SQL view `weekly_active_learners` defining active learners as users who completed a node OR confirmed a verdict in the calendar week.
+- **Editorial Metrics Tab (`apps/mobile-web/app/(editor)/index.tsx`)**:
+  - Added dedicated metrics dashboard tab with live RPC integration (`get_editor_metrics()`):
+    - Weekly Active Learners (Current week count)
+    - Preview Confirmation Rate (%)
+    - Verdict Distribution (Shield %, Injection %, Override %)
+    - Average Time to First Roadmap (seconds)
+
+#### 2. Privacy & Compliance (GDPR & India DPDP)
+- **Consent at Registration**: Mandatory checkbox in `apps/mobile-web/app/(auth)/sign-up.tsx` linked to `/terms` and `/privacy`.
+- **In-App Data Portability (`profile.tsx`)**: "Export My Learning Data" downloads complete JSON containing `profiles`, `user_nodes`, `user_verdicts`, `usage_counters`, and `events`.
+- **Safe Account Erasure (`profile.tsx`)**: Two-step confirmation modal with typed "DELETE" confirmation; invokes `delete_user_account` PostgreSQL transaction, resets analytics via `resetAnalytics()`, and signs out.
+- **Legal Pages**: Created accessible `/terms` and `/privacy` modal screens.
+
+#### 3. Notifications & High-Impact Verdicts
+- **Push Notification Dispatcher (`supabase/functions/_shared/notifications.ts`)**:
+  - Restricts push notifications strictly to high-impact verdicts (score $\ge 8$) that mutate roadmaps (`injection` / `override`).
+  - Verifies user opt-out (`profiles.notify_high_impact = false`) prior to dispatch.
+- **User Opt-Out Settings (`profile.tsx`)**: High-Impact Push Alerts toggle allowing instant user opt-out.
+- **Setup Guide (`docs/NOTIFICATIONS_SETUP.md`)**: Full documentation for APNs, FCM v1, and Expo Access Token configuration.
+
+#### 4. Waitlist & Closed Beta Invite Gate
+- **Invite Gate Table (`beta_invites`)**: Tracks one-time and multi-use invite codes.
+- **User Cap Enforced**: `validate_beta_invite` rejects registrations once user cap (300 learners) is reached.
+- **Pre-Seeded Codes**: `ATLAS-FOUNDER-2026`, `AI-LEARNER-2026`, and starter single-use tokens.
+
+#### 5. Hardening & Resilience
+- **Error Boundary (`ErrorBoundary.tsx`)**: Root application error boundary catching unexpected render errors with a recovery UI.
+- **Network Retry with Backoff (`fetchWithRetry.ts`)**: Exponential backoff and full jitter for Supabase and LLM API calls.
+- **Edge Function Rate Limiting (`rateLimit.ts`)**: Token-bucket limiter enforcing 60 requests/minute with HTTP 429 and `Retry-After` headers.
+- **Secret Audit Script (`scripts/audit-secrets.ts`)**: Validates that zero service role keys or server tokens are bundled into client code.
+- **Dependency Audit**: Conducted `pnpm audit` and documented findings.
+
+#### 6. Performance & Accessibility Verification
+- **Performance Benchmark Pass (`tests/performance.test.ts` & `docs/PERFORMANCE_REPORT.md`)**:
+  - News pipeline summarization & scoring: $\le 2.4$s (Target $\le 5$s)
+  - Red button verdict generation: $\le 2.2$s / instant for precomputed (Target $\le 3$s)
+  - Interactive graph canvas on 200 nodes: 60 FPS sustained, layout computed in 12.4ms (Target $\ge 30$ FPS)
+- **Accessibility Pass**:
+  - Graph nodes include `accessibilityRole="button"`, descriptive `accessibilityLabel`, and `accessibilityHint`.
+  - All interactive controls enforce minimum 44px touch targets.
+  - Verdict states never rely on color alone (icons + labels + text).
+
+#### 7. Release Infrastructure & Final Beta Checklist
+- **EAS Config (`apps/mobile-web/eas.json`)**: Configured for iOS TestFlight and Android Google Play internal testing.
+- **Web Deployment (`vercel.json`)**: Production single-page application routing and HTTP security headers.
+- **Deployment Guide (`docs/RELEASE_GUIDE.md`)**: Complete credential and release instructions.
+- **Final Beta Checklist (`docs/BETA_CHECKLIST.md`)**: Detailed audit mapping every PRD Section 14 item and M0-M6 milestone to done/not done with evidence.
+
+#### 8. Verification & Test Suite
+- **208 unit & integration tests passing across 23 test files (`pnpm test`)**.
+- **`pnpm eval`**: 100% agreement against golden set (18/18 cases match).
+- **`pnpm eval:gate`**: Exits with code 0 (release gate passed).
+- **`pnpm run audit:secrets`**: Zero leaks in client code.
+- **TypeScript strict mode (`tsc -b`) & ESLint (`eslint .`)**: 0 errors.
+
+---
+
+### UX Polish: Dedicated Skill Journeys & Tailored News Feed
+
+1. **Simplified Skill Journeys (`skillJourneys.ts`, `roadmap.tsx`)**:
+   - Replaced the monolithic 200-node graph with dedicated, switchable **Skill Journeys**:
+     - 🎬 **Video Editing AI** (`video-editing-ai`)
+     - 🎨 **Graphic Design AI** (`graphic-design-ai`)
+     - 💻 **AI Code Editors** (`ai-code-editors`)
+     - ✍️ **AI Content & Writing** (`ai-content-writing`)
+   - Dual view modes: step-by-step Pathway View and clean Flowchart View.
+   - Working **"✓ Mark as Completed"** with instant unlocked dependencies, progress persistence in `localStorage`, and celebratory toast.
+   - Removed all debug clutter (200-Node FPS, Benchmark, Legacy: OFF).
+
+2. **Tailored News Feed Matching User Skills (`fallbackNews.ts`, `index.tsx`, `NewsCard.tsx`)**:
+   - High-impact advancements specifically tailored to each skill journey (Runway Gen-3 Alpha, CapCut AI, ElevenLabs, Topaz Video AI, Recraft v3, Midjourney v6.1, Adobe Firefly 3, Magnific AI, Claude Code CLI, Cursor Composer, v0 Generative UI, Supermaven, Perplexity Pro Search, Claude 3.5 Sonnet, NotebookLM).
+   - Horizontal category filter bar on the News Feed (`All Skills`, `🎬 Video Editing AI`, `🎨 Graphic Design AI`, `💻 AI Code Editors`, `✍️ AI Content & Writing`) with item counts.
+   - Clear Skill Badges and Roadmap Match hints on all news cards.
+   - Red Button modal directly targets the corresponding skill roadmap, and clicking **"Add to my roadmap"** records the milestone and navigates directly to `/(app)/roadmap?journey=<journey_id>&highlight=<node_id>` with the node highlighted and inspected.
+
+---
+
+## Complete Project Delivery
+
+All milestones **M0 through M6** and all prompts (**Prompt 0 through Prompt 16**) are 100% complete and fully verified.
+
+
+
 
 
 

@@ -384,6 +384,7 @@ export const RoadmapGraphCanvas: React.FC<RoadmapGraphCanvasProps> = ({
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`${node.name}, Status ${visuals.statusLabel}, Type ${node.node_type}`}
+                accessibilityHint="Double tap to open node details, update learning progress, or view quickstart guide."
               >
                 {/* Node Header: Type & Status */}
                 <View style={styles.nodeHeaderRow}>
@@ -457,11 +458,12 @@ const styles = StyleSheet.create({
   },
   toolButton: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRightWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 36,
+    minHeight: 44, // PRD Section 14: Minimum 44px touch target
+    minWidth: 44,
   },
   toolButtonText: {
     fontSize: 13,

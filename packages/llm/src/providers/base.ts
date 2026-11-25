@@ -36,6 +36,13 @@ export abstract class BaseLLMProvider implements LLMProvider {
     return tier === 'fast' ? this.fastModel : this.strongModel;
   }
 
+  getModelInfo(): { fastModel: string; strongModel: string } {
+    return {
+      fastModel: this.fastModel,
+      strongModel: this.strongModel,
+    };
+  }
+
   protected async recordTelemetry(log: LLMCallLog): Promise<void> {
     if (this.sink) {
       try {

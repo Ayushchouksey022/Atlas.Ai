@@ -336,6 +336,80 @@ export type GoldenSetCase = z.infer<typeof GoldenSetCaseSchema>;
 export type ProposedGraphChange = Database['public']['Tables']['proposed_graph_changes']['Row'];
 export type Guide = Database['public']['Tables']['guides']['Row'];
 
+// ---------------------------------------------------------------------------
+// Beta Invites & Waitlist Schema — PRD Milestone M6
+// ---------------------------------------------------------------------------
+
+export const BetaInviteSchema = z.object({
+  id: z.string().uuid(),
+  code: z.string().min(3),
+  is_used: z.boolean().default(false),
+  used_by: z.string().uuid().nullable().optional(),
+  used_at: z.string().nullable().optional(),
+  max_uses: z.number().int().min(1).default(1),
+  use_count: z.number().int().min(0).default(0),
+  created_at: z.string().optional(),
+});
+export type BetaInvite = z.infer<typeof BetaInviteSchema>;
+
+export const BetaInviteValidationResultSchema = z.object({
+  valid: z.boolean(),
+  code: z.string().optional(),
+  reason: z.string().optional(),
+});
+export type BetaInviteValidationResult = z.infer<typeof BetaInviteValidationResultSchema>;
+
+// ---------------------------------------------------------------------------
+// Analytics Event Types — PRD Section 13
+// ---------------------------------------------------------------------------
+
+export const AnalyticsEventNameSchema = z.enum([
+  'onboarding_started',
+  'onboarding_completed',
+  'roadmap_viewed',
+  'node_status_changed',
+  'node_completed',
+  'news_card_viewed',
+  'red_button_tapped',
+  'verdict_previewed',
+  'verdict_confirmed',
+  'verdict_dismissed',
+  'guide_opened',
+  'sponsored_card_viewed',
+  'sponsored_card_clicked',
+  'daily_limit_hit',
+]);
+export type AnalyticsEventName = z.infer<typeof AnalyticsEventNameSchema>;
+
+export const AnalyticsEventSchema = z.object({
+  name: AnalyticsEventNameSchema,
+  properties: z.record(z.unknown()).default({}),
+  user_id: z.string().uuid().nullable().optional(),
+  timestamp: z.string().optional(),
+});
+export type AnalyticsEvent = z.infer<typeof AnalyticsEventSchema>;
+
+// ---------------------------------------------------------------------------
+// Editor Internal Metrics Schema — PRD Section 11.6 & 13
+// ---------------------------------------------------------------------------
+
+export const EditorMetricsSchema = z.object({
+  weekly_active_learners: z.number().int().min(0),
+  preview_confirmation_rate: z.number().min(0).max(100),
+  total_previewed: z.number().int().min(0),
+  total_confirmed: z.number().int().min(0),
+  total_dismissed: z.number().int().min(0),
+  verdict_distribution: z.object({
+    total: z.number().int().min(0),
+    shield: z.number().int().min(0),
+    injection: z.number().int().min(0),
+    override: z.number().int().min(0),
+  }),
+  avg_time_to_first_roadmap_seconds: z.number().min(0),
+});
+export type EditorMetrics = z.infer<typeof EditorMetricsSchema>;
+
+
 
 
 

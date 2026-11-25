@@ -1,0 +1,328 @@
+import type { NewsItem } from '@repo/schemas';
+import { EVAL_DOMAIN_ID, MOBILE_DOMAIN_ID, EMBEDDED_DOMAIN_ID } from './canonical-graph';
+
+export const EVAL_NEWS_ITEMS: Record<string, Partial<NewsItem>> = {
+  // 1. Marketing hype
+  'https://techcrunch.example.com/quantum-mind-1000x-ai-coding': {
+    id: 'news-hype-001',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://techcrunch.example.com/quantum-mind-1000x-ai-coding',
+    title: 'Quantum Mind AI Claims 1000x Coding Automation and End of Software Engineers',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Unverified startup claims novel quantum algorithm replaces entire engineering teams.',
+      'No public demo, benchmark evaluation, or accessible developer SDK provided.',
+      'Industry experts caution against marketing hype without verifiable technical evidence.',
+    ],
+    impact_score: 3,
+    tags: ['ai-hype', 'marketing', 'opinion'],
+    mapped_node_ids: [],
+    status: 'published',
+  },
+
+  // 2. Cross-domain: Swift iOS
+  'https://developer.apple.example.com/news/swiftdata-xcode-ai-16': {
+    id: 'news-cross-swift-002',
+    domain_id: MOBILE_DOMAIN_ID,
+    url: 'https://developer.apple.example.com/news/swiftdata-xcode-ai-16',
+    title: 'Apple Announces SwiftData & Xcode AI Assistant 16 for Native iOS Developers',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Apple integrates native SwiftData AI code completion directly into Xcode 16.',
+      'Specialized on Swift syntax, SwiftUI view hierarchies, and CoreData migrations.',
+      'Available exclusively for macOS Sequoia and native iOS/iPadOS app targeting.',
+    ],
+    impact_score: 8,
+    tags: ['mobile', 'swift', 'ios', 'xcode'],
+    mapped_node_ids: ['node-swiftdata-ios'],
+    status: 'published',
+  },
+
+  // 3. Cross-domain: Embedded Rust RTOS
+  'https://embedded.example.com/releases/rust-rtos-copilot': {
+    id: 'news-cross-embedded-003',
+    domain_id: EMBEDDED_DOMAIN_ID,
+    url: 'https://embedded.example.com/releases/rust-rtos-copilot',
+    title: 'Embedded Rust RTOS Copilot Released for ARM Cortex-M Microcontrollers',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Bare-metal real-time scheduler assistant generates deterministic ISR handlers.',
+      'Supports memory-safe concurrency for microcontrollers with sub-100KB RAM constraints.',
+      'Requires hardware JTAG debugging harness and embedded cross-compilation toolchain.',
+    ],
+    impact_score: 8,
+    tags: ['embedded', 'rust', 'hardware', 'rtos'],
+    mapped_node_ids: ['node-embedded-rust-rtos'],
+    status: 'published',
+  },
+
+  // 4. Minor non-obsolescence update: Git
+  'https://git-scm.example.com/news/git-2-45-rebase-speedups': {
+    id: 'news-git-patch-004',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://git-scm.example.com/news/git-2-45-rebase-speedups',
+    title: 'Git 2.45 Released with Rebase Speedups and Documentation Polish',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Incremental maintenance release improves interactive rebase memory footprint by 4%.',
+      'Fixes edge-case formatting bug in git-diff output for Unicode filenames.',
+      'Backward-compatible drop-in patch without changing core branching or workflow commands.',
+    ],
+    impact_score: 4,
+    tags: ['git', 'version-control', 'patch'],
+    mapped_node_ids: ['node-git-basics'],
+    status: 'published',
+  },
+
+  // 5. Minor update: VS Code icons
+  'https://code.visualstudio.example.com/updates/v1-95-minor-icons': {
+    id: 'news-vscode-icons-005',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://code.visualstudio.example.com/updates/v1-95-minor-icons',
+    title: 'VS Code 1.95 Released with Refreshed Icons and Layout Bug Fixes',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Monthly patch refreshes secondary sidebar iconography and tab corner radiuses.',
+      'Resolves minor memory leak when keeping more than 50 editor tabs open simultaneously.',
+      'Zero new AI agent or programming workflow changes introduced.',
+    ],
+    impact_score: 3,
+    tags: ['editors', 'vscode', 'ui'],
+    mapped_node_ids: [],
+    status: 'published',
+  },
+
+  // 6. Target not in user roadmap: Windsurf
+  'https://codeium.example.com/windsurf-ide-overrides-everything': {
+    id: 'news-target-missing-006',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://codeium.example.com/windsurf-ide-overrides-everything',
+    title: 'Cursor AI Proposes Overriding Windsurf, but User Does Not Have Windsurf in Roadmap',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Comparative study reviews developer migration patterns from Windsurf to Cursor.',
+      'Identifies codebase indexing advantages in high-concurrency editor scenarios.',
+      'Relevant only for teams currently standardized on legacy Windsurf installations.',
+    ],
+    impact_score: 7,
+    tags: ['editors', 'cursor', 'migration'],
+    mapped_node_ids: ['node-cursor-ide'],
+    status: 'published',
+  },
+
+  // 7. Already completed tool: Copilot
+  'https://github.blog.example.com/copilot-enterprise-audit-logs': {
+    id: 'news-copilot-audit-007',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://github.blog.example.com/copilot-enterprise-audit-logs',
+    title: 'GitHub Copilot Enterprise Feature Introduced: Compliance Audit Log Export',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'GitHub Copilot adds admin audit log streaming for Fortune 500 compliance teams.',
+      'Does not change the underlying inline completion experience or developer workflow.',
+      'Requires Enterprise Cloud subscription and organization owner credentials.',
+    ],
+    impact_score: 5,
+    tags: ['ai-assistants', 'github', 'enterprise'],
+    mapped_node_ids: ['node-github-copilot'],
+    status: 'published',
+  },
+
+  // 8. Unapproved proprietary tool
+  'https://startup.example.com/beta-stealth-ide-tool': {
+    id: 'news-unapproved-008',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://startup.example.com/beta-stealth-ide-tool',
+    title: 'Closed Internal Beta Tool Announced by Stealth AI Startup without Canonical Approval',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Private stealth startup invites 50 waitlist users to test closed proprietary assistant.',
+      'Under active NDA with no public canonical documentation or stable distribution channel.',
+      'Tool has not been submitted or approved by Atlas.AI editorial verification team.',
+    ],
+    impact_score: 7,
+    tags: ['stealth', 'unapproved'],
+    mapped_node_ids: [],
+    status: 'published',
+  },
+
+  // 9. Low impact library update: Prettier
+  'https://prettier.io.example.com/blog/2026/04/prettier-3-4-svelte-patch': {
+    id: 'news-prettier-patch-009',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://prettier.io.example.com/blog/2026/04/prettier-3-4-svelte-patch',
+    title: 'Prettier 3.4 Released with Minor Svelte Formatting Tweak and Bug Fixes',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Maintenance update resolves formatting anomaly in nested Svelte 5 snippet tags.',
+      'No architectural change to formatting pipeline or developer toolchain configuration.',
+      'Recommended patch for Svelte users; existing workflows remain completely unchanged.',
+    ],
+    impact_score: 3,
+    tags: ['tooling', 'formatting', 'patch'],
+    mapped_node_ids: ['node-prettier'],
+    status: 'published',
+  },
+
+  // 10. Injection: Claude Code CLI
+  'https://anthropic.com.example.com/news/claude-code-terminal-agent': {
+    id: 'news-claude-code-010',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://anthropic.com.example.com/news/claude-code-terminal-agent',
+    title: 'Anthropic Launches Claude Code: An Autonomous Terminal Agent for Developers',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Anthropic releases Claude Code CLI for autonomous, agentic terminal workflows.',
+      'Handles multi-file refactoring, git commits, running tests, and bug resolution from shell.',
+      'Provides high-accuracy tool use with zero IDE lock-in across existing repositories.',
+    ],
+    impact_score: 9,
+    tags: ['ai-assistants', 'agents', 'cli', 'anthropic'],
+    mapped_node_ids: ['node-claude-code'],
+    status: 'published',
+  },
+
+  // 11. Injection: Promptfoo Evals
+  'https://promptfoo.dev.example.com/announcing-production-evals-framework': {
+    id: 'news-promptfoo-011',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://promptfoo.dev.example.com/announcing-production-evals-framework',
+    title: 'Promptfoo Evals Framework Becomes the De-Facto Standard for AI Application Quality',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Promptfoo establishes CI/CD test automation for LLM prompts, rag pipelines, and agents.',
+      'Enables deterministic regression testing and red-teaming directly in GitHub Actions.',
+      'Essential quality engineering practice for developers building generative AI features.',
+    ],
+    impact_score: 8,
+    tags: ['evals-quality', 'testing', 'llm'],
+    mapped_node_ids: ['node-promptfoo'],
+    status: 'published',
+  },
+
+  // 12. Injection: Browser-Use
+  'https://browser-use.com.example.com/browser-use-agentic-web-automation': {
+    id: 'news-browser-use-012',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://browser-use.com.example.com/browser-use-agentic-web-automation',
+    title: 'Browser-Use Open Source Web Agent Enables Full End-to-End Browser Automation',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Autonomous vision-driven browser agent automates complex web UI workflows and tests.',
+      'Connects LLMs to Chromium DevTools to interact with websites and verify live flows.',
+      'Rapidly adopted by developers building web scrapers, QA test suites, and automation bots.',
+    ],
+    impact_score: 8,
+    tags: ['automation', 'agents', 'browser'],
+    mapped_node_ids: ['node-browser-use'],
+    status: 'published',
+  },
+
+  // 13. Injection: v0 Generative UI
+  'https://vercel.com.example.com/blog/v0-generative-ui-production': {
+    id: 'news-v0-013',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://vercel.com.example.com/blog/v0-generative-ui-production',
+    title: 'v0 Generative UI by Vercel Revolutionizes Rapid Prototyping and Frontend Delivery',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Vercel announces enterprise launch of v0 generative frontend component system.',
+      'Generates accessible, responsive Tailwind + React components from natural language prompts.',
+      'Seamlessly exports copy-paste code to modern Next.js and React web applications.',
+    ],
+    impact_score: 8,
+    tags: ['prototyping', 'frontend', 'vercel', 'ui'],
+    mapped_node_ids: ['node-v0-dev'],
+    status: 'published',
+  },
+
+  // 14. Injection: Supermaven
+  'https://supermaven.com.example.com/announcing-300k-context-completion': {
+    id: 'news-supermaven-014',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://supermaven.com.example.com/announcing-300k-context-completion',
+    title: 'Supermaven Ultra-Low Latency Code Completion Assistant with 300K Token Context',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Supermaven launches ultra-fast code completion engine responding in under 50ms.',
+      'Indexes entire repository context up to 300,000 tokens for precise project awareness.',
+      'Provides high-speed alternative to heavy autocomplete models without network lag.',
+    ],
+    impact_score: 7,
+    tags: ['ai-assistants', 'autocomplete', 'fast'],
+    mapped_node_ids: ['node-supermaven'],
+    status: 'published',
+  },
+
+  // 15. Override: Cursor supersedes GitHub Copilot
+  'https://cursor.com.example.com/cursor-supersedes-copilot-workflows': {
+    id: 'news-cursor-override-015',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://cursor.com.example.com/cursor-supersedes-copilot-workflows',
+    title: 'Cursor Agentic Workflows Supersedes GitHub Copilot Inline Completion for Working Devs',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Cursor replaces traditional inline single-line completion with whole-codebase agentic edits.',
+      'Benchmark studies demonstrate 4x productivity increase compared to standard Copilot tab.',
+      'Full backward-compatible migration path preserves developer keybindings and habits.',
+    ],
+    impact_score: 9,
+    tags: ['editors-ides', 'ai-assistants', 'cursor', 'copilot'],
+    mapped_node_ids: ['node-cursor-ide', 'node-github-copilot'],
+    status: 'published',
+  },
+
+  // 16. Override: Claude Code supersedes Aider
+  'https://anthropic.com.example.com/claude-code-supersedes-aider-cli': {
+    id: 'news-claude-override-016',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://anthropic.com.example.com/claude-code-supersedes-aider-cli',
+    title: 'Claude Code Autonomous CLI Tool Supersedes Aider Legacy Terminal Scaffolding',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Anthropic Claude Code supersedes Aider CLI with deeper tool integration and bash execution.',
+      'Autonomous loop executes diagnostics, tests, and git resolution without manual prompts.',
+      'Legacy Aider workflows are deprecated in favor of unified Claude Code toolchain.',
+    ],
+    impact_score: 9,
+    tags: ['ai-assistants', 'cli', 'claude-code', 'aider'],
+    mapped_node_ids: ['node-claude-code', 'node-aider'],
+    status: 'published',
+  },
+
+  // 17. Override: Biome supersedes Prettier
+  'https://biomejs.dev.example.com/biome-supersedes-prettier-pipeline': {
+    id: 'news-biome-override-017',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://biomejs.dev.example.com/biome-supersedes-prettier-pipeline',
+    title: 'Biome Rust Toolchain Supersedes Prettier + ESLint Formatting Pipeline in Modern Web Stacks',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'Biome 1.8 supersedes Prettier with 35x faster formatting speed and built-in linter.',
+      'Single unified configuration replaces fragmented Prettier and ESLint dependency trees.',
+      'Full Prettier compatibility mode allows seamless migration of existing JavaScript codebases.',
+    ],
+    impact_score: 8,
+    tags: ['tooling', 'formatting', 'biome', 'prettier'],
+    mapped_node_ids: ['node-biome', 'node-prettier'],
+    status: 'published',
+  },
+
+  // 18. Override: AST-Grep supersedes Ripgrep
+  'https://ast-grep.github.io.example.com/ast-grep-supersedes-ripgrep-refactoring': {
+    id: 'news-astgrep-override-018',
+    domain_id: EVAL_DOMAIN_ID,
+    url: 'https://ast-grep.github.io.example.com/ast-grep-supersedes-ripgrep-refactoring',
+    title: 'AST-Grep Structural Search Supersedes Plain Text Ripgrep in Codebase Refactoring Tasks',
+    published_at: new Date().toISOString(),
+    bullets: [
+      'AST-Grep supersedes Ripgrep for code search by matching abstract syntax trees rather than regex.',
+      'Eliminates false positives from comments, strings, and variable naming coincidences.',
+      'Provides safe semantic search-and-replace for large-scale multi-file migrations.',
+    ],
+    impact_score: 8,
+    tags: ['tooling', 'ast-grep', 'ripgrep', 'refactoring'],
+    mapped_node_ids: ['node-ast-grep', 'node-ripgrep'],
+    status: 'published',
+  },
+};

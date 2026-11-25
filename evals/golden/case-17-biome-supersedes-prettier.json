@@ -1,0 +1,7 @@
+{
+  "news_url": "https://biomejs.dev.example.com/biome-supersedes-prettier-pipeline",
+  "user_profile_fixture": "fullstack-web-dev",
+  "expected_verdict": "override",
+  "expected_new_node_slug": "biome",
+  "notes": "Legitimate supersedes: Approved node_supersedes link links prettier to biome. User has completed prettier in roadmap; replaced with fast-track biome."
+}

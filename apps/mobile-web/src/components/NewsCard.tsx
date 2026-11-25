@@ -23,6 +23,9 @@ export interface NewsCardItem {
   url: string;
   source_name?: string | null;
   has_roadmap_match?: boolean;
+  journey_id?: string;
+  journey_title?: string;
+  journey_icon?: string;
 }
 
 export interface NewsCardProps {
@@ -117,7 +120,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       testID={`news-card-${item.id}`}
       accessibilityLabel={`News update: ${item.title}`}
     >
-      {/* 1. Meta Header: Source, Time, Roadmap Match Hint */}
+      {/* 1. Meta Header: Source, Time, Roadmap Match Hint, Skill Badge */}
       <View style={styles.headerRow}>
         <View style={styles.sourceTimeGroup}>
           {item.source_name ? (
@@ -136,29 +139,49 @@ export const NewsCard: React.FC<NewsCardProps> = ({
           </Text>
         </View>
 
-        {item.has_roadmap_match ? (
-          <View
-            style={[
-              styles.roadmapMatchBadge,
-              {
-                backgroundColor: theme.verdictInjectionBg,
-                borderColor: theme.verdictInjectionBorder,
-                borderRadius: radii.full,
-              },
-            ]}
-            testID="roadmap-match-hint"
-            accessibilityLabel="Matches your roadmap"
-          >
-            <Text
+        <View style={styles.badgeGroup}>
+          {item.journey_title ? (
+            <View
               style={[
-                styles.roadmapMatchText,
-                { color: theme.verdictInjection },
+                styles.journeyBadge,
+                {
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                  borderRadius: radii.full,
+                },
               ]}
+              testID="news-journey-badge"
             >
-              ✨ Matches your roadmap
-            </Text>
-          </View>
-        ) : null}
+              <Text style={styles.journeyBadgeText}>
+                {item.journey_icon ? `${item.journey_icon} ` : ''}{item.journey_title}
+              </Text>
+            </View>
+          ) : null}
+
+          {item.has_roadmap_match ? (
+            <View
+              style={[
+                styles.roadmapMatchBadge,
+                {
+                  backgroundColor: theme.verdictInjectionBg,
+                  borderColor: theme.verdictInjectionBorder,
+                  borderRadius: radii.full,
+                },
+              ]}
+              testID="roadmap-match-hint"
+              accessibilityLabel="Matches your roadmap"
+            >
+              <Text
+                style={[
+                  styles.roadmapMatchText,
+                  { color: theme.verdictInjection },
+                ]}
+              >
+                ✨ Matches your roadmap
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {/* 2. Title & Impact Badge */}
@@ -298,6 +321,22 @@ const styles = StyleSheet.create({
   },
   timeAgo: {
     fontSize: 12,
+  },
+  badgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  journeyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+  },
+  journeyBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3b82f6',
   },
   roadmapMatchBadge: {
     paddingHorizontal: 8,

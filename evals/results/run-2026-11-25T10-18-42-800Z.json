@@ -1,0 +1,364 @@
+{
+  "timestamp": "2026-11-25T10:18:42.800Z",
+  "provider": "mock",
+  "models": {
+    "fast": "mock-fast-model",
+    "strong": "mock-strong-model"
+  },
+  "prompt_versions": {
+    "verdict_analysis": "1.0.0"
+  },
+  "total_cases": 18,
+  "matched_cases": 18,
+  "overall_agreement_pct": 100,
+  "per_verdict_agreement": {
+    "shield": {
+      "total": 9,
+      "matched": 9,
+      "pct": 100
+    },
+    "injection": {
+      "total": 5,
+      "matched": 5,
+      "pct": 100
+    },
+    "override": {
+      "total": 4,
+      "matched": 4,
+      "pct": 100
+    }
+  },
+  "confusion_matrix": {
+    "shield": {
+      "shield": 9,
+      "injection": 0,
+      "override": 0
+    },
+    "injection": {
+      "shield": 0,
+      "injection": 5,
+      "override": 0
+    },
+    "override": {
+      "shield": 0,
+      "injection": 0,
+      "override": 4
+    }
+  },
+  "disagreements": [],
+  "results": [
+    {
+      "case_id": "case-01-marketing-hype",
+      "filename": "case-01-marketing-hype.json",
+      "case_data": {
+        "news_url": "https://techcrunch.example.com/quantum-mind-1000x-ai-coding",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Marketing hype without verifiable benchmark, demo, or developer SDK. Impact score is below threshold (3/10) and claims are unverified."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Marketing hype without verifiable benchmark, demo, or developer SDK. Impact score is below threshold (3/10) and claims are unverified.",
+      "llm_reasoning": "Impact score is below the threshold for roadmap updates (minimum 6 required).",
+      "downgrade_reason": "LOW_IMPACT_SCORE",
+      "latency_ms": 2
+    },
+    {
+      "case_id": "case-02-cross-domain-swift",
+      "filename": "case-02-cross-domain-swift.json",
+      "case_data": {
+        "news_url": "https://developer.apple.example.com/news/swiftdata-xcode-ai-16",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Domain mismatch: SwiftData & Xcode AI assistant targets native Apple iOS developers, while the learner is in the AI-Assisted Software Development (Web/TS) domain."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Domain mismatch: SwiftData & Xcode AI assistant targets native Apple iOS developers, while the learner is in the AI-Assisted Software Development (Web/TS) domain.",
+      "llm_reasoning": "Advancement is outside the active domain of your roadmap.",
+      "downgrade_reason": "DOMAIN_MISMATCH",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-03-cross-domain-embedded",
+      "filename": "case-03-cross-domain-embedded.json",
+      "case_data": {
+        "news_url": "https://embedded.example.com/releases/rust-rtos-copilot",
+        "user_profile_fixture": "fullstack-web-dev",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Domain mismatch: Embedded Rust RTOS assistant targets bare-metal microcontroller systems, completely outside the web developer's active stack."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Domain mismatch: Embedded Rust RTOS assistant targets bare-metal microcontroller systems, completely outside the web developer's active stack.",
+      "llm_reasoning": "Advancement is outside the active domain of your roadmap.",
+      "downgrade_reason": "DOMAIN_MISMATCH",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-04-minor-git-patch",
+      "filename": "case-04-minor-git-patch.json",
+      "case_data": {
+        "news_url": "https://git-scm.example.com/news/git-2-45-rebase-speedups",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Routine minor update (impact 4/10 < 6). Git 2.45 brings non-breaking rebase speedups; it is not an obsolescence and does not introduce a new paradigm."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Routine minor update (impact 4/10 < 6). Git 2.45 brings non-breaking rebase speedups; it is not an obsolescence and does not introduce a new paradigm.",
+      "llm_reasoning": "Impact score is below the threshold for roadmap updates (minimum 6 required).",
+      "downgrade_reason": "LOW_IMPACT_SCORE",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-05-vscode-icon-update",
+      "filename": "case-05-vscode-icon-update.json",
+      "case_data": {
+        "news_url": "https://code.visualstudio.example.com/updates/v1-95-minor-icons",
+        "user_profile_fixture": "fullstack-web-dev",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Low impact UI refresh (impact 3/10 < 6). Refreshed icons and bug fixes do not warrant a roadmap mutation."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Low impact UI refresh (impact 3/10 < 6). Refreshed icons and bug fixes do not warrant a roadmap mutation.",
+      "llm_reasoning": "Impact score is below the threshold for roadmap updates (minimum 6 required).",
+      "downgrade_reason": "LOW_IMPACT_SCORE",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-06-target-not-in-roadmap",
+      "filename": "case-06-target-not-in-roadmap.json",
+      "case_data": {
+        "news_url": "https://codeium.example.com/windsurf-ide-overrides-everything",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Target node not in roadmap: The news item discusses migrating from Windsurf to Cursor, but the user does not have Windsurf in their roadmap."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Target node not in roadmap: The news item discusses migrating from Windsurf to Cursor, but the user does not have Windsurf in their roadmap.",
+      "llm_reasoning": "News item is irrelevant to user roadmap, a minor non-obsolescence update, or impact below threshold.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-07-already-completed-tool",
+      "filename": "case-07-already-completed-tool.json",
+      "case_data": {
+        "news_url": "https://github.blog.example.com/copilot-enterprise-audit-logs",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Target tool is already in user roadmap with completed status. Compliance audit log feature has impact 5/10 (< 6) and does not warrant a new node."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Target tool is already in user roadmap with completed status. Compliance audit log feature has impact 5/10 (< 6) and does not warrant a new node.",
+      "llm_reasoning": "Impact score is below the threshold for roadmap updates (minimum 6 required).",
+      "downgrade_reason": "LOW_IMPACT_SCORE",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-08-unapproved-proprietary-tool",
+      "filename": "case-08-unapproved-proprietary-tool.json",
+      "case_data": {
+        "news_url": "https://startup.example.com/beta-stealth-ide-tool",
+        "user_profile_fixture": "fullstack-web-dev",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Unapproved node: Closed stealth beta tool does not have an approved canonical node in the knowledge graph. Non-approved nodes must always be shielded."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Unapproved node: Closed stealth beta tool does not have an approved canonical node in the knowledge graph. Non-approved nodes must always be shielded.",
+      "llm_reasoning": "News item is irrelevant to user roadmap, a minor non-obsolescence update, or impact below threshold.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-09-low-impact-library-update",
+      "filename": "case-09-low-impact-library-update.json",
+      "case_data": {
+        "news_url": "https://prettier.io.example.com/blog/2026/04/prettier-3-4-svelte-patch",
+        "user_profile_fixture": "fullstack-web-dev",
+        "expected_verdict": "shield",
+        "expected_new_node_slug": null,
+        "notes": "Low impact library update (impact 3/10 < 6). Prettier 3.4 Svelte formatting tweak is backward-compatible and does not obsolete Prettier."
+      },
+      "actual_verdict": "shield",
+      "actual_new_node_slug": null,
+      "matched": true,
+      "notes": "Low impact library update (impact 3/10 < 6). Prettier 3.4 Svelte formatting tweak is backward-compatible and does not obsolete Prettier.",
+      "llm_reasoning": "Impact score is below the threshold for roadmap updates (minimum 6 required).",
+      "downgrade_reason": "LOW_IMPACT_SCORE",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-10-claude-code-cli",
+      "filename": "case-10-claude-code-cli.json",
+      "case_data": {
+        "news_url": "https://anthropic.com.example.com/news/claude-code-terminal-agent",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "injection",
+        "expected_new_node_slug": "claude-code",
+        "notes": "Major new tool release (impact 9/10). Claude Code is an approved canonical tool, domain matches, and user possesses terminal and git prerequisites."
+      },
+      "actual_verdict": "injection",
+      "actual_new_node_slug": "claude-code",
+      "matched": true,
+      "notes": "Major new tool release (impact 9/10). Claude Code is an approved canonical tool, domain matches, and user possesses terminal and git prerequisites.",
+      "llm_reasoning": "Breakthrough tool claude-code provides high-impact capabilities for the developer learning path.",
+      "latency_ms": 1
+    },
+    {
+      "case_id": "case-11-evals-framework",
+      "filename": "case-11-evals-framework.json",
+      "case_data": {
+        "news_url": "https://promptfoo.dev.example.com/announcing-production-evals-framework",
+        "user_profile_fixture": "fullstack-web-dev",
+        "expected_verdict": "injection",
+        "expected_new_node_slug": "promptfoo",
+        "notes": "High impact evaluation framework (impact 8/10). Promptfoo is an approved canonical tool, domain matches, user has TS prerequisites and tool is not in roadmap."
+      },
+      "actual_verdict": "injection",
+      "actual_new_node_slug": "promptfoo",
+      "matched": true,
+      "notes": "High impact evaluation framework (impact 8/10). Promptfoo is an approved canonical tool, domain matches, user has TS prerequisites and tool is not in roadmap.",
+      "llm_reasoning": "Breakthrough tool promptfoo provides high-impact capabilities for the developer learning path.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-12-browser-use-agent",
+      "filename": "case-12-browser-use-agent.json",
+      "case_data": {
+        "news_url": "https://browser-use.com.example.com/browser-use-agentic-web-automation",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "injection",
+        "expected_new_node_slug": "browser-use",
+        "notes": "High impact autonomous web automation tool (impact 8/10). User has terminal and JS prerequisites, tool is approved canonical node, not yet in roadmap."
+      },
+      "actual_verdict": "injection",
+      "actual_new_node_slug": "browser-use",
+      "matched": true,
+      "notes": "High impact autonomous web automation tool (impact 8/10). User has terminal and JS prerequisites, tool is approved canonical node, not yet in roadmap.",
+      "llm_reasoning": "Breakthrough tool browser-use provides high-impact capabilities for the developer learning path.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-13-v0-generative-ui",
+      "filename": "case-13-v0-generative-ui.json",
+      "case_data": {
+        "news_url": "https://vercel.com.example.com/blog/v0-generative-ui-production",
+        "user_profile_fixture": "junior-frontend-dev",
+        "expected_verdict": "injection",
+        "expected_new_node_slug": "v0-dev",
+        "notes": "High impact frontend generative tool (impact 8/10). User has basic JS/HTML prerequisites and v0-dev provides breakthrough prototyping acceleration."
+      },
+      "actual_verdict": "injection",
+      "actual_new_node_slug": "v0-dev",
+      "matched": true,
+      "notes": "High impact frontend generative tool (impact 8/10). User has basic JS/HTML prerequisites and v0-dev provides breakthrough prototyping acceleration.",
+      "llm_reasoning": "Breakthrough tool v0-dev provides high-impact capabilities for the developer learning path.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-14-supermaven-fast-autocomplete",
+      "filename": "case-14-supermaven-fast-autocomplete.json",
+      "case_data": {
+        "news_url": "https://supermaven.com.example.com/announcing-300k-context-completion",
+        "user_profile_fixture": "fullstack-web-dev",
+        "expected_verdict": "injection",
+        "expected_new_node_slug": "supermaven",
+        "notes": "High impact autocomplete tool (impact 7/10 >= 7). User has TS prerequisites, does not currently have an inline autocomplete assistant in roadmap."
+      },
+      "actual_verdict": "injection",
+      "actual_new_node_slug": "supermaven",
+      "matched": true,
+      "notes": "High impact autocomplete tool (impact 7/10 >= 7). User has TS prerequisites, does not currently have an inline autocomplete assistant in roadmap.",
+      "llm_reasoning": "Breakthrough tool supermaven provides high-impact capabilities for the developer learning path.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-15-cursor-supersedes-copilot",
+      "filename": "case-15-cursor-supersedes-copilot.json",
+      "case_data": {
+        "news_url": "https://cursor.com.example.com/cursor-supersedes-copilot-workflows",
+        "user_profile_fixture": "senior-js-copilot-user",
+        "expected_verdict": "override",
+        "expected_new_node_slug": "cursor-ide",
+        "notes": "Legitimate supersedes: Approved node_supersedes link links github-copilot to cursor-ide. The user has github-copilot completed, so it is archived and cursor-ide is added as Fast-track."
+      },
+      "actual_verdict": "override",
+      "actual_new_node_slug": "cursor-ide",
+      "matched": true,
+      "notes": "Legitimate supersedes: Approved node_supersedes link links github-copilot to cursor-ide. The user has github-copilot completed, so it is archived and cursor-ide is added as Fast-track.",
+      "llm_reasoning": "cursor-ide modern toolchain supersedes existing github-copilot roadmap node with full progress preserved.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-16-claude-code-supersedes-aider",
+      "filename": "case-16-claude-code-supersedes-aider.json",
+      "case_data": {
+        "news_url": "https://anthropic.com.example.com/claude-code-supersedes-aider-cli",
+        "user_profile_fixture": "terminal-power-user",
+        "expected_verdict": "override",
+        "expected_new_node_slug": "claude-code",
+        "notes": "Legitimate supersedes: Approved node_supersedes link links aider to claude-code. User has completed aider in their roadmap, which is archived to legacy."
+      },
+      "actual_verdict": "override",
+      "actual_new_node_slug": "claude-code",
+      "matched": true,
+      "notes": "Legitimate supersedes: Approved node_supersedes link links aider to claude-code. User has completed aider in their roadmap, which is archived to legacy.",
+      "llm_reasoning": "claude-code modern toolchain supersedes existing aider roadmap node with full progress preserved.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-17-biome-supersedes-prettier",
+      "filename": "case-17-biome-supersedes-prettier.json",
+      "case_data": {
+        "news_url": "https://biomejs.dev.example.com/biome-supersedes-prettier-pipeline",
+        "user_profile_fixture": "fullstack-web-dev",
+        "expected_verdict": "override",
+        "expected_new_node_slug": "biome",
+        "notes": "Legitimate supersedes: Approved node_supersedes link links prettier to biome. User has completed prettier in roadmap; replaced with fast-track biome."
+      },
+      "actual_verdict": "override",
+      "actual_new_node_slug": "biome",
+      "matched": true,
+      "notes": "Legitimate supersedes: Approved node_supersedes link links prettier to biome. User has completed prettier in roadmap; replaced with fast-track biome.",
+      "llm_reasoning": "biome modern toolchain supersedes existing prettier roadmap node with full progress preserved.",
+      "latency_ms": 0
+    },
+    {
+      "case_id": "case-18-ast-grep-supersedes-ripgrep",
+      "filename": "case-18-ast-grep-supersedes-ripgrep.json",
+      "case_data": {
+        "news_url": "https://ast-grep.github.io.example.com/ast-grep-supersedes-ripgrep-refactoring",
+        "user_profile_fixture": "search-refactor-dev",
+        "expected_verdict": "override",
+        "expected_new_node_slug": "ast-grep",
+        "notes": "Legitimate supersedes: Approved node_supersedes link links ripgrep to ast-grep. User has completed ripgrep in roadmap, superseded by structural search ast-grep."
+      },
+      "actual_verdict": "override",
+      "actual_new_node_slug": "ast-grep",
+      "matched": true,
+      "notes": "Legitimate supersedes: Approved node_supersedes link links ripgrep to ast-grep. User has completed ripgrep in roadmap, superseded by structural search ast-grep.",
+      "llm_reasoning": "ast-grep modern toolchain supersedes existing ripgrep roadmap node with full progress preserved.",
+      "latency_ms": 0
+    }
+  ]
+}

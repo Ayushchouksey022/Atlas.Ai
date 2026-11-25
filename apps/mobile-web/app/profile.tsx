@@ -15,6 +15,7 @@ import { useAuth } from '../src/lib/AuthProvider';
 import { useAuthStore } from '../src/lib/authStore';
 import { supabase } from '../src/lib/supabase';
 import { useRealtimeSync, broadcastSyncEvent } from '../src/lib/realtimeSync';
+import { resetAnalytics } from '../src/lib/events';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 import {
   getBundledCanonicalGraph,
@@ -168,65 +169,134 @@ export default function ProfileScreen() {
     }
   };
 
-  // 3. Notification Preferences (PRD Section 11.5 - store only)
+  // 3. Notification Preferences (PRD Section 11.5 & Prompt 16)
+  const [notifHighImpact, setNotifHighImpact] = useState<boolean>(true);
   const [notifVerdicts, setNotifVerdicts] = useState(true);
   const [notifDigest, setNotifDigest] = useState(true);
   const [notifUnlocks, setNotifUnlocks] = useState(false);
 
   // 4. Data Export & Delete Account (PRD Section 14)
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState<0 | 1 | 2>(0);
+  const [deleteInputText, setDeleteInputText] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
-  const handleExportData = () => {
-    let userNodes: unknown[] = [];
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      try {
-        const raw = window.sessionStorage.getItem('__atlas_user_nodes__');
-        if (raw) userNodes = JSON.parse(raw);
-      } catch {
-        // ignore
-      }
+  const handleToggleHighImpactNotifs = async () => {
+    const nextVal = !notifHighImpact;
+    setNotifHighImpact(nextVal);
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          notify_high_impact: nextVal,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+    } catch {
+      // ignore
     }
-    const exportPayload = {
-      user: {
-        id: user?.id,
-        email: user?.email,
-      },
-      profile,
-      roadmap_nodes: userNodes,
-      exported_at: new Date().toISOString(),
-    };
-
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `atlas-learning-export-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setExportNotice('Data exported successfully as JSON.');
-    } else {
-      setExportNotice('Export complete. Your data has been generated.');
-    }
-    setTimeout(() => setExportNotice(null), 3000);
   };
 
-  const handleDeleteAccount = async () => {
-    if (typeof window !== 'undefined') {
-      const confirmed = window.confirm(
-        'Are you sure you want to delete your Atlas.AI account and learning data? This action cannot be undone.',
-      );
-      if (confirmed) {
-        try {
-          await supabase.from('profiles').delete().eq('id', userId);
-        } catch {
-          // ignore
+  const handleExportData = async () => {
+    setIsExporting(true);
+    setExportNotice(null);
+
+    try {
+      // 1. Fetch all user-owned rows from Supabase
+      const [
+        { data: profileData },
+        { data: userNodesData },
+        { data: userVerdictsData },
+        { data: usageCountersData },
+        { data: eventsData },
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('user_nodes').select('*').eq('user_id', userId),
+        supabase.from('user_verdicts').select('*').eq('user_id', userId),
+        supabase.from('usage_counters').select('*').eq('user_id', userId),
+        supabase.from('events').select('*').eq('user_id', userId),
+      ]);
+
+      // Fallback to local storage if running in mock/offline mode
+      let fallbackNodes = userNodesData;
+      if (!fallbackNodes || fallbackNodes.length === 0) {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          try {
+            const raw = window.sessionStorage.getItem('__atlas_user_nodes__');
+            if (raw) fallbackNodes = JSON.parse(raw);
+          } catch {
+            // ignore
+          }
         }
-        await signOut();
-        router.replace('/(auth)/sign-in');
       }
+
+      const exportPayload = {
+        export_version: '1.0.0',
+        compliance_standard: 'GDPR Article 20 / India DPDP Act 2023 Data Portability',
+        exported_at: new Date().toISOString(),
+        user: {
+          id: userId,
+          email: user?.email,
+        },
+        profile: profileData || profile,
+        user_nodes: fallbackNodes || [],
+        user_verdicts: userVerdictsData || [],
+        usage_counters: usageCountersData || [],
+        events: eventsData || [],
+      };
+
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
+          type: 'application/json',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `atlas-learning-export-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setExportNotice('Full data export (JSON) generated and downloaded successfully.');
+      } else {
+        setExportNotice('Export complete. Your data has been generated.');
+      }
+    } catch (err) {
+      setExportNotice('Error generating export. Please try again.');
+    } finally {
+      setIsExporting(false);
+      setTimeout(() => setExportNotice(null), 5000);
+    }
+  };
+
+  const handleExecuteDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      // 1. Safe cascade deletion via PostgreSQL stored procedure (Prompt 1)
+      await supabase.rpc('delete_user_account', { target_user_id: userId });
+
+      // 2. Anonymize and reset analytics (PRD Section 14 GDPR/DPDP)
+      await resetAnalytics();
+
+      // 3. Clear local device state
+      if (typeof window !== 'undefined') {
+        if (window.sessionStorage) window.sessionStorage.clear();
+        if (window.localStorage) {
+          const keys = Object.keys(window.localStorage).filter((k) => k.startsWith('atlas_'));
+          keys.forEach((k) => window.localStorage.removeItem(k));
+        }
+      }
+
+      // 4. Sign out and redirect
+      await signOut();
+      router.replace('/(auth)/sign-in');
+    } catch (err) {
+      console.warn('Account deletion error:', err);
+      // Fallback local cleanup if offline
+      await resetAnalytics();
+      await signOut();
+      router.replace('/(auth)/sign-in');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -473,11 +543,37 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        {/* 3. Notification Preferences (PRD Section 11.5) */}
+        {/* 3. Notification Preferences (PRD Section 11.5 & Prompt 16) */}
         <View style={[styles.section, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
           <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-            NOTIFICATION PREFERENCES
+            NOTIFICATIONS & ALERTS
           </Text>
+
+          {/* High Impact Verdicts (Score >= 8) Only with User Opt-out */}
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={[styles.rowLabel, { color: theme.text }]}>
+                High-Impact Push Alerts (Score ≥ 8)
+              </Text>
+              <Text style={[styles.rowSubLabel, { color: theme.textMuted }]}>
+                Only notified for breakthrough tools and critical node overrides
+              </Text>
+            </View>
+            <TouchableOpacity
+              testID="toggle-notif-high-impact"
+              onPress={handleToggleHighImpactNotifs}
+              style={[
+                styles.togglePill,
+                { backgroundColor: notifHighImpact ? theme.primary : theme.border },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle high-impact push notifications"
+            >
+              <Text style={styles.togglePillText}>
+                {notifHighImpact ? 'ENABLED' : 'OPTED OUT'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.row}>
             <View style={{ flex: 1, marginRight: 8 }}>
@@ -570,6 +666,27 @@ export default function ProfileScreen() {
             DATA & COMPLIANCE (DPDP / GDPR)
           </Text>
 
+          <View style={{ flexDirection: 'row', gap: 16, marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => router.push('/privacy')}
+              accessibilityRole="link"
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text style={{ color: theme.primary, fontSize: 13, textDecorationLine: 'underline' }}>
+                📄 Privacy Policy
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/terms')}
+              accessibilityRole="link"
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text style={{ color: theme.primary, fontSize: 13, textDecorationLine: 'underline' }}>
+                ⚖️ Terms of Service
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {exportNotice ? (
             <Text style={[styles.successText, { color: theme.success, marginBottom: 8 }]}>
               {exportNotice}
@@ -581,15 +698,98 @@ export default function ProfileScreen() {
               testID="export-data-button"
               title="📥 Export My Learning Data (JSON)"
               variant="outline"
+              loading={isExporting}
               onPress={handleExportData}
               style={{ marginBottom: 12 }}
             />
-            <Button
-              testID="delete-account-button"
-              title="⚠️ Delete My Account"
-              variant="outline"
-              onPress={handleDeleteAccount}
-            />
+
+            {deleteConfirmStep === 0 && (
+              <Button
+                testID="delete-account-button"
+                title="⚠️ Delete My Account"
+                variant="outline"
+                onPress={() => setDeleteConfirmStep(1)}
+              />
+            )}
+
+            {deleteConfirmStep === 1 && (
+              <View
+                style={{
+                  padding: 16,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderColor: theme.error,
+                  borderWidth: 1,
+                  marginBottom: 8,
+                }}
+              >
+                <Text style={{ color: theme.error, fontWeight: '700', fontSize: 14, marginBottom: 6 }}>
+                  Step 1 of 2: Delete Account Confirmation
+                </Text>
+                <Text style={{ color: theme.text, fontSize: 13, marginBottom: 12 }}>
+                  Are you sure? This will wipe your profile, custom roadmaps, completed nodes, verdicts, and events.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Button
+                    title="Proceed to Final Step"
+                    variant="danger"
+                    size="sm"
+                    onPress={() => setDeleteConfirmStep(2)}
+                  />
+                  <Button
+                    title="Cancel"
+                    variant="outline"
+                    size="sm"
+                    onPress={() => setDeleteConfirmStep(0)}
+                  />
+                </View>
+              </View>
+            )}
+
+            {deleteConfirmStep === 2 && (
+              <View
+                style={{
+                  padding: 16,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  borderColor: theme.error,
+                  borderWidth: 1,
+                  marginBottom: 8,
+                }}
+              >
+                <Text style={{ color: theme.error, fontWeight: '700', fontSize: 14, marginBottom: 6 }}>
+                  Step 2 of 2: Final Irreversible Confirmation
+                </Text>
+                <Text style={{ color: theme.text, fontSize: 13, marginBottom: 10 }}>
+                  To permanently delete your account, type <Text style={{ fontWeight: '700' }}>DELETE</Text> below:
+                </Text>
+                <Input
+                  placeholder="Type DELETE"
+                  value={deleteInputText}
+                  onChangeText={setDeleteInputText}
+                  autoCapitalize="characters"
+                />
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+                  <Button
+                    title="Permanently Delete Account"
+                    variant="danger"
+                    size="sm"
+                    loading={isDeleting}
+                    disabled={deleteInputText.trim() !== 'DELETE'}
+                    onPress={handleExecuteDeleteAccount}
+                  />
+                  <Button
+                    title="Cancel"
+                    variant="outline"
+                    size="sm"
+                    onPress={() => {
+                      setDeleteConfirmStep(0);
+                      setDeleteInputText('');
+                    }}
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </View>
 

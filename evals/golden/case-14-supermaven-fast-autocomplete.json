@@ -1,0 +1,7 @@
+{
+  "news_url": "https://supermaven.com.example.com/announcing-300k-context-completion",
+  "user_profile_fixture": "fullstack-web-dev",
+  "expected_verdict": "injection",
+  "expected_new_node_slug": "supermaven",
+  "notes": "High impact autocomplete tool (impact 7/10 >= 7). User has TS prerequisites, does not currently have an inline autocomplete assistant in roadmap."
+}

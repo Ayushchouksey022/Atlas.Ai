@@ -1,0 +1,7 @@
+{
+  "news_url": "https://git-scm.example.com/news/git-2-45-rebase-speedups",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Routine minor update (impact 4/10 < 6). Git 2.45 brings non-breaking rebase speedups; it is not an obsolescence and does not introduce a new paradigm."
+}

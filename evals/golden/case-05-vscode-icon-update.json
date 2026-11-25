@@ -1,0 +1,7 @@
+{
+  "news_url": "https://code.visualstudio.example.com/updates/v1-95-minor-icons",
+  "user_profile_fixture": "fullstack-web-dev",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Low impact UI refresh (impact 3/10 < 6). Refreshed icons and bug fixes do not warrant a roadmap mutation."
+}

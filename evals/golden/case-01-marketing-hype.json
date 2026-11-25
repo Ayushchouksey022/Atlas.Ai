@@ -1,0 +1,7 @@
+{
+  "news_url": "https://techcrunch.example.com/quantum-mind-1000x-ai-coding",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Marketing hype without verifiable benchmark, demo, or developer SDK. Impact score is below threshold (3/10) and claims are unverified."
+}

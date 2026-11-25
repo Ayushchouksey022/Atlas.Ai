@@ -24,6 +24,8 @@ export interface VerdictDetail {
   target_node_name?: string;
   new_node_name?: string;
   insert_after_names?: string[];
+  journey_id?: string;
+  journey_title?: string;
 }
 
 export interface VerdictPreviewModalProps {
@@ -178,6 +180,26 @@ export const VerdictPreviewModal: React.FC<VerdictPreviewModalProps> = ({
                       : 'Verified'}
                   </Text>
                 </View>
+
+                {verdict.journey_title ? (
+                  <View
+                    style={[
+                      styles.targetJourneyPill,
+                      {
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderColor: 'rgba(59, 130, 246, 0.3)',
+                        borderRadius: radii.md,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.targetJourneyLabel, { color: theme.primary }]}>
+                      🎯 TARGET ROADMAP:
+                    </Text>
+                    <Text style={[styles.targetJourneyTitle, { color: theme.text }]}>
+                      {verdict.journey_title}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {/* Reasoning Box */}
                 <Card style={styles.reasoningCard}>
@@ -532,6 +554,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  targetJourneyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  targetJourneyLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  targetJourneyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   confidenceText: {
     fontSize: 12,

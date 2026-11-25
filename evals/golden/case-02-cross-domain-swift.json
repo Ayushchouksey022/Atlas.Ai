@@ -1,0 +1,7 @@
+{
+  "news_url": "https://developer.apple.example.com/news/swiftdata-xcode-ai-16",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Domain mismatch: SwiftData & Xcode AI assistant targets native Apple iOS developers, while the learner is in the AI-Assisted Software Development (Web/TS) domain."
+}

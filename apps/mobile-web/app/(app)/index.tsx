@@ -1,10 +1,12 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   RefreshControl,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -28,6 +30,16 @@ import {
 } from '../../src/components/VerdictPreviewModal';
 import { trackEvent } from '../../src/lib/events';
 import { supabase } from '../../src/lib/supabase';
+import { getFallbackVerdict } from '../../src/lib/fallbackNews';
+import { saveMilestoneStatus } from '../../src/lib/skillJourneys';
+
+export const SKILL_FILTERS = [
+  { id: 'all', title: 'All Skills', icon: '🌟' },
+  { id: 'video-editing-ai', title: 'Video Editing AI', icon: '🎬' },
+  { id: 'graphic-design-ai', title: 'Graphic Design AI', icon: '🎨' },
+  { id: 'ai-code-editors', title: 'AI Code Editors', icon: '💻' },
+  { id: 'ai-content-writing', title: 'AI Content & Writing', icon: '✍️' },
+];
 
 export default function FeedScreen() {
   const { theme, radii, spacing, typography } = useTheme();
@@ -59,6 +71,40 @@ export default function FeedScreen() {
   } | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [dismissedItemIds, setDismissedItemIds] = useState<Set<string>>(new Set());
+  const [selectedSkillFilter, setSelectedSkillFilter] = useState<string>('all');
+
+  // Compute item counts for each skill category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0 };
+    for (const row of feedItems) {
+      if (row.type === 'news') {
+        counts.all = (counts.all || 0) + 1;
+        const jId =
+          row.data.journey_id ||
+          row.data.tags?.find((t) =>
+            ['video-editing-ai', 'graphic-design-ai', 'ai-code-editors', 'ai-content-writing'].includes(t),
+          );
+        if (jId) {
+          counts[jId] = (counts[jId] || 0) + 1;
+        }
+      }
+    }
+    return counts;
+  }, [feedItems]);
+
+  // Filter feed items according to selected skill category
+  const displayedFeedItems = useMemo(() => {
+    if (selectedSkillFilter === 'all') return feedItems;
+    return feedItems.filter((row) => {
+      if (row.type !== 'news') return true;
+      const jId =
+        row.data.journey_id ||
+        row.data.tags?.find((t) =>
+          ['video-editing-ai', 'graphic-design-ai', 'ai-code-editors', 'ai-content-writing'].includes(t),
+        );
+      return jId === selectedSkillFilter;
+    });
+  }, [feedItems, selectedSkillFilter]);
 
   const viewedItemIds = useRef(new Set<string>());
 
@@ -172,16 +218,7 @@ export default function FeedScreen() {
         }
 
         // Test/mock fallback when Edge Functions are not running locally
-        const fallbackVerdict: VerdictDetail = {
-          id: 'verdict-sim-' + item.id,
-          news_item_id: item.id,
-          verdict: item.impact_score >= 8 ? 'injection' : item.impact_score >= 7 ? 'override' : 'shield',
-          new_node_name: item.title.split(' ')[0] + ' Tool',
-          target_node_name: 'Legacy Baseline',
-          insert_after_names: ['Foundational Concepts'],
-          reasoning: item.impact_rationale || 'Evaluated deterministically by Red Button Verdict Engine.',
-          confidence: 0.95,
-        };
+        const fallbackVerdict = getFallbackVerdict(item);
         setVerdictDetail(fallbackVerdict);
         setIsLoadingVerdict(false);
         void trackEvent('verdict_previewed', {
@@ -228,16 +265,7 @@ export default function FeedScreen() {
         return;
       }
 
-      const fallbackVerdict: VerdictDetail = {
-        id: 'verdict-sim-' + item.id,
-        news_item_id: item.id,
-        verdict: item.impact_score >= 8 ? 'injection' : item.impact_score >= 7 ? 'override' : 'shield',
-        new_node_name: item.title.split(' ')[0] + ' Tool',
-        target_node_name: 'Legacy Baseline',
-        insert_after_names: ['Foundational Concepts'],
-        reasoning: item.impact_rationale || 'Evaluated deterministically by Red Button Verdict Engine.',
-        confidence: 0.95,
-      };
+      const fallbackVerdict = getFallbackVerdict(item);
       setVerdictDetail(fallbackVerdict);
       setIsLoadingVerdict(false);
       void trackEvent('verdict_previewed', {
@@ -269,15 +297,25 @@ export default function FeedScreen() {
         }
       } catch {
         // Fallback to direct transactional RPC if edge runtime is offline
-        await supabase.rpc('apply_verdict_transaction', {
-          p_user_id: userId,
-          p_news_item_id: verdict.news_item_id,
-          p_verdict_id: verdict.id,
-          p_verdict_type: verdict.verdict,
-          p_target_node_id: verdict.target_node_id || null,
-          p_new_node_id: verdict.new_node_id || null,
-          p_insert_after_ids: verdict.insert_after_node_ids || [],
-        });
+        try {
+          await supabase.rpc('apply_verdict_transaction', {
+            p_user_id: userId,
+            p_news_item_id: verdict.news_item_id,
+            p_verdict_id: verdict.id,
+            p_verdict_type: verdict.verdict,
+            p_target_node_id: verdict.target_node_id || null,
+            p_new_node_id: verdict.new_node_id || null,
+            p_insert_after_ids: verdict.insert_after_node_ids || [],
+          });
+        } catch {
+          // Offline / local preview mode fallback
+        }
+      }
+
+      // Save into local milestone progress so it reflects immediately on the skill roadmap
+      const targetMilestoneId = appliedNewNodeId || verdict.new_node_id || verdict.target_node_id;
+      if (targetMilestoneId) {
+        saveMilestoneStatus(userId, targetMilestoneId, 'available');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['roadmap'] });
@@ -288,10 +326,17 @@ export default function FeedScreen() {
       setRedButtonModalItem(null);
       setVerdictDetail(null);
 
-      // 4. After applying: navigate to Roadmap tab, highlight changed node, offer quickstart guide
+      const targetJourney =
+        verdict.journey_id ||
+        (selectedSkillFilter !== 'all' ? selectedSkillFilter : 'video-editing-ai');
+
+      // 4. After applying: navigate to Roadmap tab, select the right journey & highlight changed node
       router.push({
         pathname: '/(app)/roadmap',
-        params: { highlight: appliedNewNodeId || verdict.target_node_id || '' },
+        params: {
+          journey: targetJourney,
+          highlight: targetMilestoneId || '',
+        },
       });
     } catch (err) {
       setIsApplying(false);
@@ -351,7 +396,7 @@ export default function FeedScreen() {
   return (
     <Screen style={styles.screen}>
       <FlatList
-        data={feedItems}
+        data={displayedFeedItems}
         renderItem={renderItem}
         keyExtractor={(item, index) =>
           item.type === 'news'
@@ -383,6 +428,87 @@ export default function FeedScreen() {
               Curated, high-impact advancements for{' '}
               {profile?.display_name || 'your roadmap'}.
             </Text>
+
+            {/* Skill Category Selector Bar */}
+            <View style={styles.filterSection}>
+              <View style={styles.filterHeaderRow}>
+                <Text style={[styles.filterSectionTitle, { color: theme.textSecondary }]}>
+                  MY SKILL ROADMAPS
+                </Text>
+                {selectedSkillFilter !== 'all' ? (
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(app)/roadmap',
+                        params: { journey: selectedSkillFilter },
+                      })
+                    }
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={[styles.viewRoadmapLink, { color: theme.primary }]}>
+                      Open {SKILL_FILTERS.find((f) => f.id === selectedSkillFilter)?.title} Roadmap →
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterPillsContainer}
+              >
+                {SKILL_FILTERS.map((filter) => {
+                  const isSelected = selectedSkillFilter === filter.id;
+                  const count = categoryCounts[filter.id] ?? 0;
+                  return (
+                    <TouchableOpacity
+                      key={filter.id}
+                      style={[
+                        styles.filterPill,
+                        {
+                          backgroundColor: isSelected ? theme.primary : theme.surface,
+                          borderColor: isSelected ? theme.primary : theme.border,
+                        },
+                      ]}
+                      onPress={() => setSelectedSkillFilter(filter.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Filter by ${filter.title}`}
+                      testID={`filter-pill-${filter.id}`}
+                    >
+                      <Text
+                        style={[
+                          styles.filterPillText,
+                          { color: isSelected ? '#FFFFFF' : theme.text },
+                        ]}
+                      >
+                        {filter.icon} {filter.title}
+                        {count > 0 ? ` (${count})` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {selectedSkillFilter !== 'all' ? (
+                <View
+                  style={[
+                    styles.activeSkillBanner,
+                    {
+                      backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                      borderColor: 'rgba(59, 130, 246, 0.25)',
+                    },
+                  ]}
+                >
+                  <Text style={[styles.activeSkillBannerText, { color: theme.text }]}>
+                    Showing {categoryCounts[selectedSkillFilter] || 0} advancements for{' '}
+                    <Text style={{ fontWeight: '700', color: theme.primary }}>
+                      {SKILL_FILTERS.find((f) => f.id === selectedSkillFilter)?.title}
+                    </Text>
+                    . Tap <Text style={{ fontWeight: '700', color: '#DC2626' }}>🔴 Red Button</Text> to analyze & inject directly into your roadmap.
+                  </Text>
+                </View>
+              ) : null}
+            </View>
 
             <Card style={styles.previewCard}>
               <Text style={[styles.cardTitle, { color: theme.text, ...typography.md }]}>
@@ -534,6 +660,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  filterHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  filterSectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  viewRoadmapLink: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterPillsContainer: {
+    gap: 8,
+    paddingBottom: 6,
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activeSkillBanner: {
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  activeSkillBannerText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
   previewCard: {
     marginBottom: 16,

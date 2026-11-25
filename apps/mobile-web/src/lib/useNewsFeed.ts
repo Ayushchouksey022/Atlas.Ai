@@ -4,6 +4,10 @@ import { supabase } from './supabase';
 import { useAuth } from './AuthProvider';
 import type { NewsCardItem } from '../components/NewsCard';
 import type { SponsoredCardProps } from '../components/SponsoredCard';
+import {
+  FALLBACK_NEWS_ITEMS,
+  FALLBACK_SPONSORED_PLACEMENTS,
+} from './fallbackNews';
 
 export type FeedRowItem =
   | { type: 'news'; data: NewsCardItem }
@@ -33,14 +37,11 @@ export function useNewsFeed() {
         const now = new Date().toISOString();
         const { data, error } = await query;
 
-        if (error) {
-          console.warn('[useNewsFeed] Warning fetching sponsored placements:', error.message);
-          return [];
+        if (error || !data || data.length === 0) {
+          return FALLBACK_SPONSORED_PLACEMENTS;
         }
 
-        if (!data) return [];
-
-        return data
+        const filtered = data
           .filter((p) => {
             const startsValid = !p.starts_at || p.starts_at <= now;
             const endsValid = !p.ends_at || p.ends_at >= now;
@@ -53,8 +54,10 @@ export function useNewsFeed() {
             cta_url: p.cta_url,
             sponsor_name: p.sponsor_name,
           }));
+
+        return filtered.length > 0 ? filtered : FALLBACK_SPONSORED_PLACEMENTS;
       } catch {
-        return [];
+        return FALLBACK_SPONSORED_PLACEMENTS;
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -85,58 +88,64 @@ export function useNewsFeed() {
   const newsQuery = useInfiniteQuery({
     queryKey: ['news_feed', domainId],
     queryFn: async ({ pageParam = 0 }): Promise<NewsCardItem[]> => {
-      let query = supabase
-        .from('news_items')
-        .select(`
-          id,
-          title,
-          published_at,
-          bullets,
-          impact_score,
-          impact_rationale,
-          tags,
-          url,
-          source_id,
-          news_sources ( name )
-        `)
-        .eq('status', 'published')
-        .order('published_at', { ascending: false })
-        .range(pageParam, pageParam + PAGE_SIZE - 1);
+      try {
+        let query = supabase
+          .from('news_items')
+          .select(`
+            id,
+            title,
+            published_at,
+            bullets,
+            impact_score,
+            impact_rationale,
+            tags,
+            url,
+            source_id,
+            news_sources ( name )
+          `)
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .range(pageParam, pageParam + PAGE_SIZE - 1);
 
-      if (domainId) {
-        query = query.eq('domain_id', domainId);
+        if (domainId) {
+          query = query.eq('domain_id', domainId);
+        }
+
+        const { data, error } = await query;
+
+        if (!error && data && data.length > 0) {
+          return data.map((row: any) => {
+            const bulletsRaw = Array.isArray(row.bullets) ? row.bullets : [];
+            const bulletsTuple: [string, string, string] = [
+              bulletsRaw[0] || 'Advancement summary point',
+              bulletsRaw[1] || 'Key engineering detail',
+              bulletsRaw[2] || 'Actionable takeaway',
+            ];
+
+            return {
+              id: row.id,
+              title: row.title,
+              published_at: row.published_at,
+              bullets: bulletsTuple,
+              impact_score: row.impact_score || 5,
+              impact_rationale: row.impact_rationale,
+              tags: row.tags || [],
+              url: row.url,
+              source_name: row.news_sources?.name || null,
+              has_roadmap_match: matchedNewsItemIds?.has(row.id) ?? false,
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('[useNewsFeed] Backend query failed, loading curated news feed:', err);
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data) return [];
-
-      return data.map((row: any) => {
-        // Enforce fallback for bullets to strictly meet [string, string, string] tuple
-        const bulletsRaw = Array.isArray(row.bullets) ? row.bullets : [];
-        const bulletsTuple: [string, string, string] = [
-          bulletsRaw[0] || 'Advancement summary point',
-          bulletsRaw[1] || 'Key engineering detail',
-          bulletsRaw[2] || 'Actionable takeaway',
-        ];
-
-        return {
-          id: row.id,
-          title: row.title,
-          published_at: row.published_at,
-          bullets: bulletsTuple,
-          impact_score: row.impact_score || 5,
-          impact_rationale: row.impact_rationale,
-          tags: row.tags || [],
-          url: row.url,
-          source_name: row.news_sources?.name || null,
-          has_roadmap_match: matchedNewsItemIds?.has(row.id) ?? false,
-        };
-      });
+      // Offline / Unseeded fallback
+      const slice = FALLBACK_NEWS_ITEMS.slice(pageParam, pageParam + PAGE_SIZE);
+      return slice.map((item) => ({
+        ...item,
+        has_roadmap_match: matchedNewsItemIds?.has(item.id) ?? item.has_roadmap_match ?? false,
+      }));
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
@@ -145,29 +154,35 @@ export function useNewsFeed() {
       }
       return allPages.length * PAGE_SIZE;
     },
+    retry: 1,
+    staleTime: 60 * 1000,
   });
 
   // 4. Realtime subscription on published news_items
   useEffect(() => {
-    const channel = supabase
-      .channel('realtime_news_feed')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'news_items',
-          filter: 'status=eq.published',
-        },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ['news_feed'] });
-        },
-      )
-      .subscribe();
+    try {
+      const channel = supabase
+        .channel('realtime_news_feed')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'news_items',
+            filter: 'status=eq.published',
+          },
+          () => {
+            void queryClient.invalidateQueries({ queryKey: ['news_feed'] });
+          },
+        )
+        .subscribe();
 
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+      return () => {
+        void supabase.removeChannel(channel);
+      };
+    } catch {
+      // Ignore in offline mode
+    }
   }, [queryClient]);
 
   // 5. Interleave one sponsored card per 10 items (fixed cadence, structural separation)

@@ -69,6 +69,9 @@ export interface Database {
           domain_id: string | null;
           experience: Json | null;
           onboarding_completed: boolean;
+          push_token: string | null;
+          notify_high_impact: boolean;
+          notify_digest: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -78,6 +81,9 @@ export interface Database {
           domain_id?: string | null;
           experience?: Json | null;
           onboarding_completed?: boolean;
+          push_token?: string | null;
+          notify_high_impact?: boolean;
+          notify_digest?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -87,6 +93,9 @@ export interface Database {
           domain_id?: string | null;
           experience?: Json | null;
           onboarding_completed?: boolean;
+          push_token?: string | null;
+          notify_high_impact?: boolean;
+          notify_digest?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -708,9 +717,51 @@ export interface Database {
         };
         Relationships: [];
       };
+      beta_invites: {
+        Row: {
+          id: string;
+          code: string;
+          is_used: boolean;
+          used_by: string | null;
+          used_at: string | null;
+          max_uses: number;
+          use_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          is_used?: boolean;
+          used_by?: string | null;
+          used_at?: string | null;
+          max_uses?: number;
+          use_count?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          code?: string;
+          is_used?: boolean;
+          used_by?: string | null;
+          used_at?: string | null;
+          max_uses?: number;
+          use_count?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
-      [_ in never]: never;
+      weekly_active_learners: {
+        Row: {
+          calendar_week: string | null;
+          user_id: string | null;
+          activity_count: number | null;
+          has_node_completed: boolean | null;
+          has_verdict_confirmed: boolean | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       is_editor: {
@@ -733,6 +784,23 @@ export interface Database {
           p_new_node_id?: string | null;
           p_insert_after_ids?: string[];
         };
+        Returns: Json;
+      };
+      validate_beta_invite: {
+        Args: {
+          invite_code: string;
+        };
+        Returns: Json;
+      };
+      claim_beta_invite: {
+        Args: {
+          invite_code: string;
+          claiming_user_id: string;
+        };
+        Returns: boolean;
+      };
+      get_editor_metrics: {
+        Args: Record<PropertyKey, never>;
         Returns: Json;
       };
     };

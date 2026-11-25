@@ -1,0 +1,7 @@
+{
+  "news_url": "https://startup.example.com/beta-stealth-ide-tool",
+  "user_profile_fixture": "fullstack-web-dev",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Unapproved node: Closed stealth beta tool does not have an approved canonical node in the knowledge graph. Non-approved nodes must always be shielded."
+}

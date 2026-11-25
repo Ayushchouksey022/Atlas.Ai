@@ -1,0 +1,7 @@
+{
+  "news_url": "https://promptfoo.dev.example.com/announcing-production-evals-framework",
+  "user_profile_fixture": "fullstack-web-dev",
+  "expected_verdict": "injection",
+  "expected_new_node_slug": "promptfoo",
+  "notes": "High impact evaluation framework (impact 8/10). Promptfoo is an approved canonical tool, domain matches, user has TS prerequisites and tool is not in roadmap."
+}

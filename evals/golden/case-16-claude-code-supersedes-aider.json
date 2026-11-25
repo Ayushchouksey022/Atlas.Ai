@@ -1,0 +1,7 @@
+{
+  "news_url": "https://anthropic.com.example.com/claude-code-supersedes-aider-cli",
+  "user_profile_fixture": "terminal-power-user",
+  "expected_verdict": "override",
+  "expected_new_node_slug": "claude-code",
+  "notes": "Legitimate supersedes: Approved node_supersedes link links aider to claude-code. User has completed aider in their roadmap, which is archived to legacy."
+}

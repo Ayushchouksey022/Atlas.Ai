@@ -36,6 +36,18 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
   const { theme, spacing, typography, radii, minTouchTarget } = useTheme();
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  // Local status tracking so UI reflects completion immediately
+  const [localStatus, setLocalStatus] = useState<string | null>(node?.status ?? null);
+
+  React.useEffect(() => {
+    if (node) {
+      setLocalStatus(node.status);
+      setErrorMessage(null);
+      setSuccessBanner(null);
+    }
+  }, [node?.id, node?.status]);
 
   // Fetch quickstart guide for this canonical node (cached in TanStack Query)
   const { data: guide, isLoading: isLoadingGuide } = useQuery<GuideData | null>({
@@ -68,7 +80,9 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
 
   const handleStatusChange = async (targetStatus: string) => {
     setErrorMessage(null);
-    const check = canTransitionToStatus(targetStatus, node.status, prereqNames);
+    setSuccessBanner(null);
+    const effectiveStatus = (localStatus || node.status) as any;
+    const check = canTransitionToStatus(targetStatus, effectiveStatus, prereqNames);
     if (!check.allowed) {
       setErrorMessage(check.reason || 'This status transition is not permitted.');
       return;
@@ -76,16 +90,22 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
 
     try {
       setIsUpdating(true);
+      setLocalStatus(targetStatus);
       await onUpdateStatus(node.id, targetStatus);
       setIsUpdating(false);
+      if (targetStatus === 'completed') {
+        setSuccessBanner('🎉 Milestone marked as completed! Next learning step unlocked.');
+      }
     } catch (err) {
       setIsUpdating(false);
+      setLocalStatus(node.status);
       setErrorMessage((err as Error).message || 'Failed to update status');
     }
   };
 
   const getStatusBadge = () => {
-    switch (node.status) {
+    const current = localStatus || node.status;
+    switch (current) {
       case 'completed':
         return <Badge label="✅ Completed" variant="success" testID="sheet-status-badge" />;
       case 'in_progress':
@@ -96,6 +116,8 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
         return <Badge label="🔒 Locked" variant="warning" testID="sheet-status-badge" />;
       case 'archived':
         return <Badge label="📦 Archived (Legacy)" variant="default" testID="sheet-status-badge" />;
+      default:
+        return <Badge label="🟢 Available" variant="outline" testID="sheet-status-badge" />;
     }
   };
 
@@ -172,6 +194,20 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
               </Text>
             </View>
 
+            {/* Success Banner */}
+            {successBanner && (
+              <View
+                style={[
+                  styles.successBox,
+                  { backgroundColor: 'rgba(22, 163, 74, 0.1)', borderColor: '#16a34a' },
+                ]}
+              >
+                <Text style={[styles.successText, { color: '#15803d' }]}>
+                  {successBanner}
+                </Text>
+              </View>
+            )}
+
             {/* Error / Locked Warning Banner */}
             {errorMessage ? (
               <View style={[styles.errorBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.error }]}>
@@ -179,7 +215,7 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
                   {errorMessage}
                 </Text>
               </View>
-            ) : node.status === 'locked' ? (
+            ) : (localStatus || node.status) === 'locked' ? (
               <View style={[styles.warningBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.verdictOverrideBorder }]}>
                 <Text style={[styles.warningText, { color: theme.verdictOverride }]}>
                   🔒 <Text style={{ fontWeight: '700' }}>Node Locked:</Text> You must satisfy all prerequisite concepts before marking this skill completed.
@@ -239,34 +275,31 @@ export const NodeDetailSheet: React.FC<NodeDetailSheetProps> = ({
                 <ActivityIndicator size="small" color={theme.primary} style={{ marginVertical: 12 }} />
               ) : (
                 <View style={styles.statusButtonsGrid}>
-                  {node.status !== 'completed' && (
+                  {(localStatus || node.status) !== 'completed' ? (
                     <Button
                       testID="mark-completed-button"
                       title="✓ Mark as Completed"
                       variant="primary"
-                      disabled={node.status === 'locked'}
+                      disabled={(localStatus || node.status) === 'locked'}
                       onPress={() => handleStatusChange('completed')}
                       style={{ marginBottom: spacing.sm }}
                     />
-                  )}
-
-                  {node.status !== 'in_progress' && node.status !== 'completed' && (
+                  ) : (
                     <Button
-                      testID="mark-in-progress-button"
-                      title="⏳ Start Learning (In Progress)"
-                      variant="secondary"
-                      disabled={node.status === 'locked'}
-                      onPress={() => handleStatusChange('in_progress')}
+                      testID="reset-todo-button"
+                      title="↩ Mark as Incomplete (Undo)"
+                      variant="outline"
+                      onPress={() => handleStatusChange('available')}
                       style={{ marginBottom: spacing.sm }}
                     />
                   )}
 
-                  {node.status !== 'available' && node.status !== 'locked' && (
+                  {(localStatus || node.status) === 'available' && (
                     <Button
-                      testID="reset-todo-button"
-                      title="Move to To-Do"
-                      variant="outline"
-                      onPress={() => handleStatusChange('todo')}
+                      testID="mark-in-progress-button"
+                      title="⏳ Set In Progress"
+                      variant="secondary"
+                      onPress={() => handleStatusChange('in_progress')}
                       style={{ marginBottom: spacing.sm }}
                     />
                   )}
@@ -388,6 +421,17 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  successBox: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginVertical: 8,
+  },
+  successText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   emptyPrereqText: {
     fontSize: 13,

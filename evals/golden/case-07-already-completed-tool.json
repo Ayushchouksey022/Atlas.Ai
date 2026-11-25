@@ -1,0 +1,7 @@
+{
+  "news_url": "https://github.blog.example.com/copilot-enterprise-audit-logs",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "shield",
+  "expected_new_node_slug": null,
+  "notes": "Target tool is already in user roadmap with completed status. Compliance audit log feature has impact 5/10 (< 6) and does not warrant a new node."
+}

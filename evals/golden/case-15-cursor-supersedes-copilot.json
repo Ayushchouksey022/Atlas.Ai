@@ -1,0 +1,7 @@
+{
+  "news_url": "https://cursor.com.example.com/cursor-supersedes-copilot-workflows",
+  "user_profile_fixture": "senior-js-copilot-user",
+  "expected_verdict": "override",
+  "expected_new_node_slug": "cursor-ide",
+  "notes": "Legitimate supersedes: Approved node_supersedes link links github-copilot to cursor-ide. The user has github-copilot completed, so it is archived and cursor-ide is added as Fast-track."
+}

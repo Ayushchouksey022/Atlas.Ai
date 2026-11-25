@@ -51,6 +51,9 @@ describe('Database Schema & RLS Invariants', () => {
       domain_id: 'dom-1',
       experience: { area: 'expert' },
       onboarding_completed: true,
+      push_token: null,
+      notify_high_impact: true,
+      notify_digest: true,
       created_at: '2026-01-01',
       updated_at: '2026-01-01',
     };

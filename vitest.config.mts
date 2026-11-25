@@ -18,6 +18,8 @@ export default defineConfig({
       'packages/**/src/**/*.test.{ts,tsx}',
       'apps/**/src/**/*.test.{ts,tsx}',
       'supabase/functions/**/*.test.{ts,tsx}',
+      'evals/**/*.test.ts',
+      'tests/**/*.test.ts',
     ],
     alias: {
       'react-native': rnwPath,

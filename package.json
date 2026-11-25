@@ -19,7 +19,10 @@
     "graph:validate": "tsx scripts/validate-graph.ts",
     "graph:seed": "tsx scripts/seed-graph.ts",
     "grant-editor": "tsx scripts/grant-editor.ts",
-    "llm:smoke": "tsx packages/llm/src/smoke.ts"
+    "llm:smoke": "tsx packages/llm/src/smoke.ts",
+    "eval": "tsx evals/runner.ts",
+    "eval:gate": "tsx evals/runner.ts --gate",
+    "audit:secrets": "tsx scripts/audit-secrets.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

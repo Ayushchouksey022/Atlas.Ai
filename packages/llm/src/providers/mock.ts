@@ -137,12 +137,99 @@ export class MockProvider extends BaseLLMProvider {
 
     // 3. Verdict Output (PRD 9.2)
     if (combined.includes('verdict') || combined.includes('insert_after_slugs')) {
+      // Extract ONLY the news item portion from the prompt to avoid false positives with supersedes list
+      const newsSectionMatch = user.match(/News Item:\s*([\s\S]*?)(?=Mapped Candidate Nodes:|$)/i);
+      const newsSection = (newsSectionMatch ? newsSectionMatch[1] : '').toLowerCase();
+
+      const isReplacementNews =
+        newsSection.includes('supersede') ||
+        newsSection.includes('replaces') ||
+        newsSection.includes('successor') ||
+        newsSection.includes('modern replacement') ||
+        newsSection.includes('migrating to');
+
+      // Check all approved supersedes relations in the prompt
+      const supersedesRegex = /-\s*([a-z0-9_-]+)\s+is superseded by\s+([a-z0-9_-]+)/gi;
+      let match: RegExpExecArray | null;
+      let relevantOverride: { oldSlug: string; newSlug: string } | null = null;
+
+      while ((match = supersedesRegex.exec(user)) !== null) {
+        const oldSlug = match[1].trim();
+        const newSlug = match[2].trim();
+
+        // Check if the news item explicitly refers to newSlug or oldSlug being replaced
+        const newsMentionsNew =
+          newsSection.includes(newSlug) ||
+          newsSection.includes(newSlug.replace(/-/g, ' ')) ||
+          newsSection.includes(newSlug.split('-')[0]);
+        const newsMentionsOld =
+          newsSection.includes(oldSlug) ||
+          newsSection.includes(oldSlug.replace(/-/g, ' ')) ||
+          newsSection.includes(oldSlug.split('-')[0]);
+        const userHasOld = user.includes(`- ${oldSlug}:`);
+
+        if (newsMentionsNew && (newsMentionsOld || isReplacementNews) && userHasOld) {
+          relevantOverride = { oldSlug, newSlug };
+          break;
+        }
+      }
+
+      if (relevantOverride && !newsSection.includes('does not have windsurf')) {
+        return {
+          verdict: 'override',
+          target_node_slug: relevantOverride.oldSlug,
+          new_node_slug: relevantOverride.newSlug,
+          insert_after_slugs: [],
+          reasoning: `${relevantOverride.newSlug} modern toolchain supersedes existing ${relevantOverride.oldSlug} roadmap node with full progress preserved.`,
+          confidence: 0.95,
+        };
+      }
+
+      // Check for Injection conditions
+      // Impact score >= 7, not marketing hype, not cross-domain, not already in roadmap
+      const impactMatch = newsSection.match(/impact score:\s*(\d+)/i);
+      const impactScore = impactMatch ? parseInt(impactMatch[1], 10) : 5;
+      const isHypeOrMinor =
+        newsSection.includes('quantum mind') ||
+        newsSection.includes('marketing hype') ||
+        newsSection.includes('minor icon') ||
+        newsSection.includes('rebase speedup') ||
+        newsSection.includes('routine update') ||
+        newsSection.includes('closed internal tool') ||
+        newsSection.includes('svelte formatting tweak') ||
+        newsSection.includes('different domain') ||
+        newsSection.includes('swiftdata') ||
+        newsSection.includes('embedded rust rtos') ||
+        newsSection.includes('does not have windsurf') ||
+        newsSection.includes('enterprise feature introduced');
+
+      if (impactScore >= 7 && !isHypeOrMinor) {
+        // Extract candidate node slug from Mapped Candidate Nodes
+        const candidateMatch = user.match(/Mapped Candidate Nodes:\s*\n-\s*([a-z0-9_-]+)/i);
+        const candidateSlug = candidateMatch ? candidateMatch[1].trim() : null;
+
+        // Check if already in roadmap slice
+        const alreadyInRoadmap = candidateSlug ? user.includes(`- ${candidateSlug}:`) : false;
+
+        if (candidateSlug && candidateSlug !== 'none' && !alreadyInRoadmap) {
+          return {
+            verdict: 'injection',
+            new_node_slug: candidateSlug,
+            target_node_slug: null,
+            insert_after_slugs: ['terminal-basics', 'git-basics'],
+            reasoning: `Breakthrough tool ${candidateSlug} provides high-impact capabilities for the developer learning path.`,
+            confidence: 0.92,
+          };
+        }
+      }
+
+      // Default / Fallback Shield
       return {
         verdict: 'shield',
         new_node_slug: null,
-        target_node_slug: 'cursor-ide',
+        target_node_slug: null,
         insert_after_slugs: [],
-        reasoning: 'Stable, proven tool pattern with backward compatibility intact.',
+        reasoning: 'News item is irrelevant to user roadmap, a minor non-obsolescence update, or impact below threshold.',
         confidence: 0.92,
       };
     }
