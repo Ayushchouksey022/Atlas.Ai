@@ -15,17 +15,21 @@ import { RoadmapGraphCanvas } from '../../src/components/RoadmapGraphCanvas';
 import { NodeDetailSheet } from '../../src/components/NodeDetailSheet';
 import {
   SKILL_JOURNEYS,
+  DEFAULT_USER_ID,
   loadJourneyProgress,
+  loadInjectedMilestones,
   saveMilestoneStatus,
   getEnrichedJourneyNodes,
   type SkillJourney,
+  type JourneyMilestone,
 } from '../../src/lib/skillJourneys';
 import type { EnrichedRoadmapNode } from '../../src/lib/graphLayout';
+import type { CanonicalEdge } from '@repo/schemas';
 
 export default function RoadmapScreen() {
   const { theme, spacing, typography, radii, minTouchTarget } = useTheme();
   const { user } = useAuth();
-  const userId = user?.id || 'demo-user-default';
+  const userId = user?.id || DEFAULT_USER_ID;
   const params = useLocalSearchParams<{ highlight?: string; journey?: string }>();
 
   // 1. Active Skill Journey Selection
@@ -41,19 +45,53 @@ export default function RoadmapScreen() {
     loadJourneyProgress(userId),
   );
 
-  // 4. Modal inspection state
+  // 4. Injected milestones storage (journeyId -> list of milestones added from news)
+  const [injectedMilestonesMap, setInjectedMilestonesMap] = useState<
+    Record<string, JourneyMilestone[]>
+  >(() => loadInjectedMilestones(userId));
+
+  // 5. Modal inspection state
   const [selectedNode, setSelectedNode] = useState<EnrichedRoadmapNode | null>(null);
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(params.highlight || null);
   const [celebrationToast, setCelebrationToast] = useState<string | null>(null);
   const lastHandledHighlight = useRef<string | null>(null);
 
-  // Active Journey Object
+  // Active Journey Object with baseline milestones + user-injected milestones from news
   const activeJourney = useMemo<SkillJourney>(() => {
-    return (
+    const base =
       SKILL_JOURNEYS.find((j) => j.id === activeJourneyId) ||
-      SKILL_JOURNEYS[0]
-    );
-  }, [activeJourneyId]);
+      SKILL_JOURNEYS[0];
+
+    const injected = injectedMilestonesMap[activeJourneyId] || [];
+    if (injected.length === 0) return base;
+
+    // Filter out duplicates with baseline
+    const baseIds = new Set(base.milestones.map((m) => m.id));
+    const newItems = injected.filter((m) => !baseIds.has(m.id));
+    if (newItems.length === 0) return base;
+
+    // Generate edges for injected milestones so they link in Flowchart view
+    const newEdges: CanonicalEdge[] = [...base.edges];
+    newItems.forEach((item, idx) => {
+      const prevId =
+        idx === 0
+          ? base.milestones[base.milestones.length - 1]?.id
+          : newItems[idx - 1]?.id;
+      if (prevId) {
+        newEdges.push({
+          id: `edge-inj-${prevId}-${item.id}`,
+          from_node: prevId,
+          to_node: item.id,
+        });
+      }
+    });
+
+    return {
+      ...base,
+      milestones: [...base.milestones, ...newItems],
+      edges: newEdges,
+    };
+  }, [activeJourneyId, injectedMilestonesMap]);
 
   // Enriched nodes for the active journey based on user progress
   const enrichedNodes = useMemo<EnrichedRoadmapNode[]>(() => {
@@ -94,22 +132,30 @@ export default function RoadmapScreen() {
     if (params.journey && params.journey !== activeJourneyId) {
       setActiveJourneyId(params.journey);
     }
-  }, [params.journey, activeJourneyId]);
+  }, [params.journey]);
 
-  // Auto-highlight node if passed in params (does not force modal popup open)
+  // Auto-highlight node if passed in params
   useEffect(() => {
     if (params.highlight && lastHandledHighlight.current !== params.highlight) {
-      lastHandledHighlight.current = params.highlight;
-      // Reload latest local storage progress in case verdict was just applied
+      // Reload latest local storage progress & injected nodes in case verdict was just applied
       const freshProgress = loadJourneyProgress(userId);
       setUserProgress(freshProgress);
+      const freshInjected = loadInjectedMilestones(userId);
+      setInjectedMilestonesMap(freshInjected);
 
-      const match = enrichedNodes.find((n) => n.id === params.highlight || n.slug === params.highlight);
+      const match = enrichedNodes.find(
+        (n) => n.id === params.highlight || n.slug === params.highlight,
+      );
       if (match) {
+        lastHandledHighlight.current = params.highlight;
         setHighlightedNodeId(match.id);
+        setCelebrationToast(`✨ "${match.name}" is now on your ${activeJourney.title} roadmap!`);
+        setTimeout(() => {
+          setCelebrationToast(null);
+        }, 5000);
       }
     }
-  }, [params.highlight, enrichedNodes, userId]);
+  }, [params.highlight, enrichedNodes, userId, activeJourney.title]);
 
   // Handle Mark as Completed / Status change
   const handleUpdateStatus = async (nodeId: string, newStatus: string) => {
@@ -400,6 +446,7 @@ export default function RoadmapScreen() {
                         highlightedNodeId === node.id && {
                           borderWidth: 2.5,
                           borderColor: activeJourney.color,
+                          backgroundColor: 'rgba(59, 130, 246, 0.08)',
                         },
                       ]}
                     >
@@ -415,15 +462,21 @@ export default function RoadmapScreen() {
                           </Text>
                         </View>
 
-                        {isCompleted ? (
-                          <Badge label="✅ Completed" variant="success" />
-                        ) : isInProgress ? (
-                          <Badge label="⏳ In Progress" variant="primary" />
-                        ) : isAvailable ? (
-                          <Badge label="🟢 Ready to Learn" variant="outline" />
-                        ) : (
-                          <Badge label="🔒 Locked" variant="warning" />
-                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          {milestone?.injected_from_news ? (
+                            <Badge label="✨ Added from News" variant="primary" />
+                          ) : null}
+
+                          {isCompleted ? (
+                            <Badge label="✅ Completed" variant="success" />
+                          ) : isInProgress ? (
+                            <Badge label="⏳ In Progress" variant="primary" />
+                          ) : isAvailable ? (
+                            <Badge label="🟢 Ready to Learn" variant="outline" />
+                          ) : (
+                            <Badge label="🔒 Locked" variant="warning" />
+                          )}
+                        </View>
                       </View>
 
                       {/* Milestone Title & Description */}
@@ -437,7 +490,7 @@ export default function RoadmapScreen() {
                       {/* Tools & Time Meta */}
                       <View style={styles.metaRow}>
                         <View style={styles.toolsList}>
-                          {milestone.tools.map((tool) => (
+                          {(milestone?.tools || ['AI Tool']).map((tool) => (
                             <View
                               key={tool}
                               style={[styles.toolTag, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}
@@ -449,7 +502,7 @@ export default function RoadmapScreen() {
                           ))}
                         </View>
                         <Text style={[styles.durationText, { color: theme.textMuted }]}>
-                          ⏱️ ~{milestone.duration_minutes}m
+                          ⏱️ ~{milestone?.duration_minutes || 20}m
                         </Text>
                       </View>
 

@@ -1,6 +1,7 @@
 import type { NewsCardItem } from '../components/NewsCard';
 import type { SponsoredCardProps } from '../components/SponsoredCard';
 import type { VerdictDetail } from '../components/VerdictPreviewModal';
+import { resolveJourneyId, SKILL_JOURNEYS } from './skillJourneys';
 
 export const FALLBACK_NEWS_ITEMS: NewsCardItem[] = [
   // ==========================================
@@ -601,12 +602,13 @@ export function getFallbackVerdict(item: NewsCardItem): VerdictDetail {
 
   // Minor or routine patches (Impact <= 4)
   if (item.impact_score <= 4) {
+    const jId = item.journey_id || resolveJourneyId(null, item.tags, item.title);
     return {
       id: 'verdict-sim-' + item.id,
       news_item_id: item.id,
       verdict: 'shield',
-      journey_id: item.journey_id,
-      journey_title: item.journey_title,
+      journey_id: jId,
+      journey_title: SKILL_JOURNEYS.find((j) => j.id === jId)?.title || item.journey_title,
       reasoning:
         item.impact_rationale ||
         'No changes to your roadmap. This update is minor or does not alter your core learning pathway.',
@@ -614,12 +616,33 @@ export function getFallbackVerdict(item: NewsCardItem): VerdictDetail {
     };
   }
 
+  // Major / breakthrough advancements default to injection if not explicitly matched
+  if (item.impact_score >= 7) {
+    const jId = item.journey_id || resolveJourneyId(null, item.tags, item.title);
+    const jObj = SKILL_JOURNEYS.find((j) => j.id === jId);
+    return {
+      id: 'verdict-sim-' + item.id,
+      news_item_id: item.id,
+      verdict: 'injection',
+      journey_id: jId,
+      journey_title: jObj?.title || 'AI Skill Roadmap',
+      new_node_name: item.title.split(':')[0].replace(/Launches|Releases|Introduces|Adds|Unveils|Beats/i, '').trim(),
+      new_node_id: `inj-${item.id}`,
+      insert_after_names: ['Foundational Milestones'],
+      reasoning:
+        item.impact_rationale ||
+        `High-impact (${item.impact_score}/10) advancement evaluated deterministically and approved for roadmap injection.`,
+      confidence: 0.93,
+    };
+  }
+
+  const defaultJId = item.journey_id || resolveJourneyId(null, item.tags, item.title);
   return {
     id: 'verdict-sim-' + item.id,
     news_item_id: item.id,
     verdict: 'shield',
-    journey_id: item.journey_id,
-    journey_title: item.journey_title,
+    journey_id: defaultJId,
+    journey_title: SKILL_JOURNEYS.find((j) => j.id === defaultJId)?.title || item.journey_title,
     reasoning:
       item.impact_rationale ||
       'No changes needed; your current skill roadmap already accounts for this advancement.',

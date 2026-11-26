@@ -14,6 +14,8 @@ export interface JourneyMilestone {
   prerequisites: string[]; // Milestone IDs
   external_url: string;
   key_takeaways: string[];
+  injected_from_news?: boolean;
+  news_title?: string;
 }
 
 export interface SkillJourney {
@@ -482,9 +484,82 @@ export const SKILL_JOURNEYS: SkillJourney[] = [
   },
 ];
 
+export const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000099';
+
+// Resolve appropriate journey ID from explicit ID, tags, or title
+export function resolveJourneyId(
+  explicitJourneyId?: string | null,
+  tags?: string[],
+  title?: string,
+): string {
+  if (explicitJourneyId && SKILL_JOURNEYS.some((j) => j.id === explicitJourneyId)) {
+    return explicitJourneyId;
+  }
+  if (tags && tags.length > 0) {
+    for (const tag of tags) {
+      if (SKILL_JOURNEYS.some((j) => j.id === tag)) {
+        return tag;
+      }
+    }
+  }
+  const lower = (title || '').toLowerCase();
+  if (
+    lower.includes('video') ||
+    lower.includes('runway') ||
+    lower.includes('capcut') ||
+    lower.includes('elevenlabs') ||
+    lower.includes('topaz') ||
+    lower.includes('voiceover')
+  ) {
+    return 'video-editing-ai';
+  }
+  if (
+    lower.includes('graphic') ||
+    lower.includes('design') ||
+    lower.includes('recraft') ||
+    lower.includes('midjourney') ||
+    lower.includes('firefly') ||
+    lower.includes('photoshop') ||
+    lower.includes('vector') ||
+    lower.includes('magnific')
+  ) {
+    return 'graphic-design-ai';
+  }
+  if (
+    lower.includes('code') ||
+    lower.includes('cursor') ||
+    lower.includes('claude code') ||
+    lower.includes('v0') ||
+    lower.includes('supermaven') ||
+    lower.includes('developer') ||
+    lower.includes('terminal') ||
+    lower.includes('copilot')
+  ) {
+    return 'ai-code-editors';
+  }
+  if (
+    lower.includes('writing') ||
+    lower.includes('content') ||
+    lower.includes('perplexity') ||
+    lower.includes('notebooklm') ||
+    lower.includes('author') ||
+    lower.includes('research')
+  ) {
+    return 'ai-content-writing';
+  }
+  return 'video-editing-ai';
+}
+
 // Helper to get storage key
 export function getStorageKey(userId: string): string {
-  return `__atlas_journey_progress_${userId}__`;
+  const safeId = userId || DEFAULT_USER_ID;
+  return `__atlas_journey_progress_${safeId}__`;
+}
+
+// Key for custom injected milestones from news
+export function getInjectedStorageKey(userId: string): string {
+  const safeId = userId || DEFAULT_USER_ID;
+  return `__atlas_journey_injected_nodes_${safeId}__`;
 }
 
 // Load user progress map (milestoneId -> status)
@@ -501,6 +576,51 @@ export function loadJourneyProgress(userId: string): Record<string, string> {
     // ignore
   }
   return {};
+}
+
+// Load custom milestones injected from news
+export function loadInjectedMilestones(userId: string): Record<string, JourneyMilestone[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw =
+      window.localStorage?.getItem(getInjectedStorageKey(userId)) ||
+      window.sessionStorage?.getItem(getInjectedStorageKey(userId));
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+// Save custom milestone injected from news
+export function saveInjectedMilestone(
+  userId: string,
+  journeyId: string,
+  milestone: JourneyMilestone,
+): void {
+  const current = loadInjectedMilestones(userId);
+  const list = current[journeyId] ? [...current[journeyId]] : [];
+  const existingIdx = list.findIndex(
+    (m) => m.id === milestone.id || m.slug === milestone.slug,
+  );
+  if (existingIdx >= 0) {
+    list[existingIdx] = milestone;
+  } else {
+    list.push(milestone);
+  }
+  current[journeyId] = list;
+
+  if (typeof window !== 'undefined') {
+    try {
+      const serialized = JSON.stringify(current);
+      window.localStorage?.setItem(getInjectedStorageKey(userId), serialized);
+      window.sessionStorage?.setItem(getInjectedStorageKey(userId), serialized);
+    } catch {
+      // ignore
+    }
+  }
 }
 
 // Save progress for a milestone
@@ -542,6 +662,8 @@ export function getEnrichedJourneyNodes(
       visualStatus = 'completed';
     } else if (recorded === 'in_progress') {
       visualStatus = 'in_progress';
+    } else if (recorded === 'available' || m.injected_from_news) {
+      visualStatus = 'available';
     } else {
       // Check if all prerequisites are completed
       const allPrereqsMet = m.prerequisites.every((pid) => completedIds.has(pid));
@@ -561,7 +683,7 @@ export function getEnrichedJourneyNodes(
       external_url: m.external_url,
       version_tag: null,
       userNodeId: `un-${m.id}`,
-      fast_track: m.level === 0,
+      fast_track: m.level === 0 || Boolean(m.injected_from_news),
       completed_at: visualStatus === 'completed' ? new Date().toISOString() : null,
       version: 1,
     };

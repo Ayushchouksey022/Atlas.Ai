@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-25T10:25:48.313Z",
+  "timestamp": "2026-11-26T09:00:57.940Z",
   "provider": "mock",
   "models": {
     "fast": "mock-fast-model",
@@ -63,7 +63,7 @@
       "notes": "Marketing hype without verifiable benchmark, demo, or developer SDK. Impact score is below threshold (3/10) and claims are unverified.",
       "llm_reasoning": "Impact score is below the threshold for roadmap updates (minimum 6 required).",
       "downgrade_reason": "LOW_IMPACT_SCORE",
-      "latency_ms": 2
+      "latency_ms": 0
     },
     {
       "case_id": "case-02-cross-domain-swift",
@@ -222,7 +222,7 @@
       "matched": true,
       "notes": "Major new tool release (impact 9/10). Claude Code is an approved canonical tool, domain matches, and user possesses terminal and git prerequisites.",
       "llm_reasoning": "Breakthrough tool claude-code provides high-impact capabilities for the developer learning path.",
-      "latency_ms": 1
+      "latency_ms": 0
     },
     {
       "case_id": "case-11-evals-framework",
@@ -273,7 +273,7 @@
       "matched": true,
       "notes": "High impact frontend generative tool (impact 8/10). User has basic JS/HTML prerequisites and v0-dev provides breakthrough prototyping acceleration.",
       "llm_reasoning": "Breakthrough tool v0-dev provides high-impact capabilities for the developer learning path.",
-      "latency_ms": 0
+      "latency_ms": 1
     },
     {
       "case_id": "case-14-supermaven-fast-autocomplete",

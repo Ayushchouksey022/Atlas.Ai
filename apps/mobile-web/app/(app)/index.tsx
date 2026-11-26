@@ -31,7 +31,14 @@ import {
 import { trackEvent } from '../../src/lib/events';
 import { supabase } from '../../src/lib/supabase';
 import { getFallbackVerdict } from '../../src/lib/fallbackNews';
-import { saveMilestoneStatus } from '../../src/lib/skillJourneys';
+import {
+  DEFAULT_USER_ID,
+  resolveJourneyId,
+  saveInjectedMilestone,
+  saveMilestoneStatus,
+  SKILL_JOURNEYS,
+  type JourneyMilestone,
+} from '../../src/lib/skillJourneys';
 
 export const SKILL_FILTERS = [
   { id: 'all', title: 'All Skills', icon: '🌟' },
@@ -159,7 +166,7 @@ export default function FeedScreen() {
     setVerdictDetail(null);
     setIsLoadingVerdict(true);
 
-    const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+    const userId = user?.id || DEFAULT_USER_ID;
 
     try {
       // 1. Try finding precomputed user_verdict
@@ -172,6 +179,8 @@ export default function FeedScreen() {
 
       if (userVerdict?.verdict) {
         const v = userVerdict.verdict as any;
+        const jId = resolveJourneyId(v.journey_id || item.journey_id, item.tags, item.title);
+        const jObj = SKILL_JOURNEYS.find((j) => j.id === jId);
         const detail: VerdictDetail = {
           id: v.id,
           news_item_id: item.id,
@@ -184,6 +193,8 @@ export default function FeedScreen() {
           target_node_name: v.target_node_name,
           new_node_name: v.new_node_name,
           insert_after_names: v.insert_after_names,
+          journey_id: jId,
+          journey_title: jObj?.title || 'AI Skill Roadmap',
         };
         setVerdictDetail(detail);
         setIsLoadingVerdict(false);
@@ -230,6 +241,8 @@ export default function FeedScreen() {
       }
 
       const data = invokeRes.data;
+      const jId = resolveJourneyId(data.journey_id || item.journey_id, item.tags, item.title);
+      const jObj = SKILL_JOURNEYS.find((j) => j.id === jId);
       const detail: VerdictDetail = {
         id: data.verdict_id || data.id,
         news_item_id: item.id,
@@ -242,6 +255,8 @@ export default function FeedScreen() {
         target_node_name: data.target_node_name,
         new_node_name: data.new_node_name,
         insert_after_names: data.insert_after_names,
+        journey_id: jId,
+        journey_title: jObj?.title || 'AI Skill Roadmap',
       };
       setVerdictDetail(detail);
       setIsLoadingVerdict(false);
@@ -284,7 +299,7 @@ export default function FeedScreen() {
       verdict_id: verdict.id,
     });
 
-    const userId = user?.id || '00000000-0000-0000-0000-000000000099';
+    const userId = user?.id || DEFAULT_USER_ID;
 
     try {
       let appliedNewNodeId = verdict.new_node_id;
@@ -312,10 +327,63 @@ export default function FeedScreen() {
         }
       }
 
-      // Save into local milestone progress so it reflects immediately on the skill roadmap
-      const targetMilestoneId = appliedNewNodeId || verdict.new_node_id || verdict.target_node_id;
-      if (targetMilestoneId) {
+      // 1. Resolve exact target journey & milestone
+      const targetJourneyId =
+        verdict.journey_id ||
+        resolveJourneyId(redButtonModalItem?.journey_id, redButtonModalItem?.tags, redButtonModalItem?.title) ||
+        (selectedSkillFilter !== 'all' ? selectedSkillFilter : 'video-editing-ai');
+
+      const targetMilestoneId =
+        appliedNewNodeId ||
+        verdict.new_node_id ||
+        verdict.target_node_id ||
+        `injected-${Date.now()}`;
+
+      // 2. Check if this milestone already exists in the target journey
+      const targetJourney =
+        SKILL_JOURNEYS.find((j) => j.id === targetJourneyId) || SKILL_JOURNEYS[0];
+      const existingMilestone = targetJourney.milestones.find(
+        (m) => m.id === targetMilestoneId || m.slug === targetMilestoneId,
+      );
+
+      if (existingMilestone) {
+        saveMilestoneStatus(userId, existingMilestone.id, 'available');
+      } else {
+        const newMilestone: JourneyMilestone = {
+          id: targetMilestoneId,
+          slug: (verdict.new_node_name || redButtonModalItem?.title || 'advancement')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .slice(0, 40),
+          name: verdict.new_node_name || redButtonModalItem?.title || 'New Advancement',
+          description:
+            verdict.reasoning ||
+            redButtonModalItem?.impact_rationale ||
+            redButtonModalItem?.bullets[0] ||
+            'Advancement added to roadmap from AI News Feed.',
+          node_type: verdict.verdict === 'override' ? 'tool' : 'workflow',
+          level: targetJourney.milestones.length,
+          area: 'AI Advancements',
+          duration_minutes: 25,
+          tools: [verdict.new_node_name || redButtonModalItem?.source_name || 'AI Tool'],
+          prerequisites: verdict.insert_after_node_ids || [],
+          external_url: redButtonModalItem?.url || 'https://google.com',
+          key_takeaways: redButtonModalItem?.bullets || [
+            'Master the newly added advancement',
+            'Integrate directly into your active workflows',
+            'Verify speedups and quality improvements',
+          ],
+          injected_from_news: true,
+          news_title: redButtonModalItem?.title,
+        };
+
+        saveInjectedMilestone(userId, targetJourneyId, newMilestone);
         saveMilestoneStatus(userId, targetMilestoneId, 'available');
+      }
+
+      // If override, mark the superseded tool as completed
+      if (verdict.verdict === 'override' && verdict.target_node_id) {
+        saveMilestoneStatus(userId, verdict.target_node_id, 'completed');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['roadmap'] });
@@ -326,16 +394,12 @@ export default function FeedScreen() {
       setRedButtonModalItem(null);
       setVerdictDetail(null);
 
-      const targetJourney =
-        verdict.journey_id ||
-        (selectedSkillFilter !== 'all' ? selectedSkillFilter : 'video-editing-ai');
-
       // 4. After applying: navigate to Roadmap tab, select the right journey & highlight changed node
       router.push({
         pathname: '/(app)/roadmap',
         params: {
-          journey: targetJourney,
-          highlight: targetMilestoneId || '',
+          journey: targetJourneyId,
+          highlight: targetMilestoneId,
         },
       });
     } catch (err) {
